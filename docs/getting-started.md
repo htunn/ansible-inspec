@@ -26,7 +26,7 @@ pip install ansible-inspec
 ### From Source
 
 ```bash
-git clone https://github.com/your-org/ansible-inspec.git
+git clone https://github.com/htunn/ansible-inspec.git
 cd ansible-inspec
 pip install -e .
 ```
@@ -199,6 +199,6 @@ ansible-inspec exec profile -t ssh://user@host -i ~/.ssh/id_rsa
 
 ## Getting Help
 
-- [GitHub Issues](https://github.com/your-org/ansible-inspec/issues)
-- [Discussions](https://github.com/your-org/ansible-inspec/discussions)
+- [GitHub Issues](https://github.com/htunn/ansible-inspec/issues)
+- [Discussions](https://github.com/htunn/ansible-inspec/discussions)
 - Check the [FAQ](faq.md)

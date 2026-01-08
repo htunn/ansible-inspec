@@ -108,17 +108,26 @@ class AnsibleInventory:
                 self.groups[group_name] = []
             
             for host_name, host_vars in group_data['hosts'].items():
-                # Merge group vars with host vars
-                merged_vars = {}
-                if group_name in self.group_vars:
-                    merged_vars.update(self.group_vars[group_name])
-                if host_vars:
-                    merged_vars.update(host_vars)
-                
-                # Create host object
-                host = InventoryHost(host_name, merged_vars)
-                self.hosts[host_name] = host
-                self.groups[group_name].append(host_name)
+                # Check if host already exists
+                if host_name in self.hosts:
+                    # Host already exists, just add to this group
+                    if host_name not in self.groups[group_name]:
+                        self.groups[group_name].append(host_name)
+                    # Update vars if new ones provided
+                    if host_vars:
+                        self.hosts[host_name].vars.update(host_vars)
+                else:
+                    # Merge group vars with host vars
+                    merged_vars = {}
+                    if group_name in self.group_vars:
+                        merged_vars.update(self.group_vars[group_name])
+                    if host_vars:
+                        merged_vars.update(host_vars)
+                    
+                    # Create host object
+                    host = InventoryHost(host_name, merged_vars)
+                    self.hosts[host_name] = host
+                    self.groups[group_name].append(host_name)
         
         # Parse child groups
         if 'children' in group_data:

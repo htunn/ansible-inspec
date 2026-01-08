@@ -52,7 +52,7 @@ Examples:
   ansible-inspec init profile my-compliance
   ansible-inspec version --license
   
-For more information, visit: https://github.com/your-org/ansible-inspec
+For more information, visit: https://github.com/htunn/ansible-inspec
         '''
     )
     

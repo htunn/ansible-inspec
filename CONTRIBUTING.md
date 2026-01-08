@@ -58,7 +58,7 @@ Please be respectful and constructive in all interactions.
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/ansible-inspec.git
+git clone https://github.com/htunn/ansible-inspec.git
 cd ansible-inspec
 
 # Create virtual environment
@@ -125,7 +125,7 @@ Since this project combines GPL-3.0 and Apache-2.0 licensed components:
 ## Questions?
 
 If you have questions about contributing:
-- Open a [Discussion](https://github.com/your-org/ansible-inspec/discussions)
+- Open a [Discussion](https://github.com/htunn/ansible-inspec/discussions)
 - Ask in project chat
 - Review existing documentation
 

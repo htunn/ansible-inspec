@@ -107,18 +107,18 @@ git clone https://github.com/Htunn
 ### From Source
 
 ```bash
-git clone https://github.com/your-org/ansible-inspec.git
+git clone https://github.com/htunn/ansible-inspec.git
 cd ansible-inspec
 pip install -e .
 ```
 
 ### Binary Installation
 
-Download the latest binary from the [releases page](https://github.com/your-org/ansible-inspec/releases).
+Download the latest binary from the [releases page](https://github.com/htunn/ansible-inspec/releases).
 
 ```bash
 # Linux/macOS
-curl -LO https://github.com/your-org/ansible-inspec/releases/latest/download/ansible-inspec
+curl -LO https://github.com/htunn/ansible-inspec/releases/latest/download/ansible-inspec
 chmod +x ansible-inspec
 sudo mv ansible-inspec /usr/local/bin/
 ```
@@ -490,8 +490,8 @@ This project adheres to the codes of conduct from both upstream projects:
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/your-org/ansible-inspec/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/ansible-inspec/discussions)
+- **Issues**: [GitHub Issues](https://github.com/htunn/ansible-inspec/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/htunn/ansible-inspec/discussions)
 - **Chat**: Join our community chat
 
 ## Acknowledgments
