@@ -1,0 +1,42 @@
+GNU GENERAL PUBLIC LICENSE
+Version 3, 29 June 2007
+
+Copyright (C) 2026 ansible-inspec project contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+================================================================================
+
+NOTICE: This project combines components from:
+
+1. Ansible (https://github.com/ansible/ansible)
+   - Licensed under GPL-3.0
+   - Copyright (C) Red Hat, Inc.
+
+2. InSpec (https://github.com/inspec/inspec)
+   - Licensed under Apache-2.0
+   - Copyright (C) 2015 Vulcano Security GmbH.
+   - Copyright (C) 2017-2020 Chef Software Inc.
+   - Copyright (C) 2020-2023 Progress Software Corp.
+
+As this project combines GPL-3.0 licensed code (Ansible) with Apache-2.0 
+licensed code (InSpec), the entire combined work must be distributed under 
+the GPL-3.0 license, which is the more restrictive of the two licenses.
+
+The Apache-2.0 licensed components from InSpec are compatible with GPL-3.0
+and are incorporated under the terms of the GPL-3.0 license as permitted by
+the Apache-2.0 license.
+
+For the full text of GPL-3.0, see: https://www.gnu.org/licenses/gpl-3.0.txt
+For the full text of Apache-2.0, see: https://www.apache.org/licenses/LICENSE-2.0.txt

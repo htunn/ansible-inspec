@@ -1,0 +1,45 @@
+ansible-inspec
+Copyright (C) 2026 ansible-inspec project contributors
+
+This project incorporates components from the following upstream projects:
+
+================================================================================
+
+Ansible
+https://github.com/ansible/ansible
+Copyright (C) Red Hat, Inc.
+Licensed under the GPL-3.0 License
+
+Ansible is a radically simple IT automation platform that makes your 
+applications and systems easier to deploy and maintain.
+
+================================================================================
+
+InSpec  
+https://github.com/inspec/inspec
+Copyright (C) 2015 Vulcano Security GmbH.
+Copyright (C) 2017-2020 Chef Software Inc.
+Copyright (C) 2020-2023 Progress Software Corp.
+Licensed under the Apache-2.0 License
+
+InSpec is an open-source testing framework for infrastructure with a 
+human- and machine-readable language for specifying compliance, security 
+and policy requirements.
+
+================================================================================
+
+LICENSE COMPATIBILITY NOTICE:
+
+This combined work is distributed under the GNU General Public License v3.0
+(GPL-3.0) as the GPL-3.0 license from Ansible is more restrictive than the 
+Apache-2.0 license from InSpec. The Apache-2.0 license is compatible with 
+GPL-3.0, allowing us to combine these components under GPL-3.0 as the 
+governing license for the entire work.
+
+Per section 4(b) of the Apache-2.0 license, we must give notice of any 
+modifications made to InSpec components. Any such modifications will be 
+documented in the project's version control history and CHANGELOG.
+
+Per GPL-3.0 requirements, the complete source code for this software is 
+available, and you have the right to modify and redistribute it under the 
+same license terms.

@@ -1,0 +1,7 @@
+# name: Custom Compliance Profile
+# title: Example Profile with Custom Resources
+# maintainer: Ansible InSpec Team
+# copyright: Ansible InSpec Team
+# license: Apache-2.0
+# summary: Example InSpec profile demonstrating custom resources
+version: 1.0.0

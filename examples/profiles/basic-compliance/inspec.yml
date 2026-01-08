@@ -1,0 +1,11 @@
+name: basic-compliance
+title: Basic System Compliance Profile
+maintainer: ansible-inspec contributors
+copyright: ansible-inspec contributors
+copyright_email: your@email.com
+license: GPL-3.0
+summary: Basic compliance checks for system configuration
+version: 0.1.0
+supports:
+  - platform-family: linux
+  - platform-family: darwin

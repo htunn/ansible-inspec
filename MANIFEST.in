@@ -1,0 +1,15 @@
+include README.md
+include LICENSE
+include NOTICE
+include CONTRIBUTING.md
+include CHANGELOG.md
+include pyproject.toml
+recursive-include lib *.py
+recursive-include docs *.md
+recursive-include examples *.rb *.yml *.yaml
+recursive-include tests *.py
+include bin/ansible-inspec
+include scripts/*.sh
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude .DS_Store

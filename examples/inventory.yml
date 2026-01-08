@@ -1,0 +1,27 @@
+# Example Ansible Inventory for ansible-inspec
+
+all:
+  children:
+    webservers:
+      hosts:
+        web-01:
+          ansible_host: 192.168.1.10
+          ansible_user: admin
+        web-02:
+          ansible_host: 192.168.1.11
+          ansible_user: admin
+      vars:
+        compliance_profile: profiles/web-server
+
+    databases:
+      hosts:
+        db-01:
+          ansible_host: 192.168.1.20
+          ansible_user: dbadmin
+      vars:
+        compliance_profile: profiles/database
+
+  vars:
+    # Global variables for all hosts
+    ansible_port: 22
+    ansible_connection: ssh

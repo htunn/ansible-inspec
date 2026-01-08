@@ -1,0 +1,181 @@
+name: Build and Push Docker Image
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+  pull_request:
+    branches: [main]
+
+env:
+  IMAGE_NAME: ansible-inspec
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Extract version from pyproject.toml
+        id: version
+        run: |
+          VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extracted version: $VERSION"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ vars.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable={{is_default_branch}}
+          labels: |
+            org.opencontainers.image.title=Ansible-InSpec
+            org.opencontainers.image.description=Compliance testing with Ansible and InSpec integration
+            org.opencontainers.image.vendor=ansible-inspec
+            org.opencontainers.image.licenses=GPL-3.0-or-later
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            org.opencontainers.image.source=${{ github.repositoryUrl }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ steps.version.outputs.version }}
+
+      - name: Test Docker image (local build)
+        if: github.event_name == 'pull_request'
+        run: |
+          # Build image locally for testing
+          docker build -t test-image:local .
+          docker run --rm test-image:local --help
+          docker run --rm test-image:local --version
+
+      - name: Test Docker image (pushed)
+        if: github.event_name != 'pull_request'
+        run: |
+          docker run --rm ${{ vars.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} --help
+          docker run --rm ${{ vars.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} --version
+
+  integration-test:
+    runs-on: ubuntu-latest
+    environment: pypi
+    needs: build
+    if: github.event_name != 'pull_request'
+
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests tomli
+
+      - name: Extract version from PyPI
+        id: version
+        run: |
+          # For first release, use latest git tag, otherwise get from PyPI
+          VERSION=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.1.0")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version for testing: $VERSION"
+
+      - name: Wait for Docker Hub propagation
+        run: |
+          echo "Waiting for Docker image to be available..."
+          sleep 60  # Wait 1 minute for Docker Hub propagation
+
+      - name: Test basic functionality
+        run: |
+          echo "Testing basic help command..."
+          docker run --rm ${{ vars.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest --help
+
+      - name: Test version command
+        run: |
+          echo "Testing version command..."
+          docker run --rm ${{ vars.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest --version
+
+      - name: Test init profile command
+        run: |
+          echo "Testing init profile..."
+          docker run --rm -v $(pwd):/workspace ${{ vars.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest init profile test-profile
+          test -f test-profile/inspec.yml || (echo "❌ Profile creation failed" && exit 1)
+          echo "✅ Profile created successfully"
+
+      - name: Test license info
+        run: |
+          echo "Testing license information..."
+          docker run --rm ${{ vars.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest --license | grep -q "GPL-3.0"
+          echo "✅ License information validated"
+
+      - name: Test with specific version tag
+        run: |
+          echo "Testing with version-specific tag..."
+          docker run --rm ${{ vars.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} --help
+
+  security-scan:
+    runs-on: ubuntu-latest
+    environment: pypi
+    needs: [build, integration-test]
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ vars.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+          format: "sarif"
+          output: "trivy-results.sarif"
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: "trivy-results.sarif"

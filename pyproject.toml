@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ansible-inspec"
+version = "0.1.0"
+description = "Compliance testing with Ansible and InSpec integration"
+readme = "README.md"
+authors = [
+    {name = "ansible-inspec contributors"}
+]
+license = {text = "GPL-3.0-or-later"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Security",
+]
+keywords = ["ansible", "inspec", "compliance", "testing", "infrastructure", "security", "automation"]
+requires-python = ">=3.8"
+dependencies = [
+    "ansible-core>=2.15.0",
+    "pyyaml>=6.0",
+    "jinja2>=3.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "black>=23.0",
+    "flake8>=6.0",
+    "mypy>=1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/Htunn/ansible-inspec"
+Documentation = "https://github.com/Htunn/ansible-inspec#readme"
+Repository = "https://github.com/Htunn/ansible-inspec"
+Issues = "https://github.com/Htunn/ansible-inspec/issues"
+Changelog = "https://github.com/Htunn/ansible-inspec/blob/main/CHANGELOG.md"
+"Docker Hub" = "https://hub.docker.com/r/htunnthuthu/ansible-inspec"
+
+[project.scripts]
+ansible-inspec = "ansible_inspec.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "lib"}
+
+[tool.setuptools.packages.find]
+where = ["lib"]
+
+[tool.black]
+line-length = 100
+target-version = ["py38", "py39", "py310", "py311", "py312"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = "-v --cov=ansible_inspec --cov-report=term-missing"
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
