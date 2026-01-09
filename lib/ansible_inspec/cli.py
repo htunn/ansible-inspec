@@ -293,6 +293,9 @@ def main():
             # Return appropriate exit code
             return 0 if result.success else 1
             
+        except KeyboardInterrupt:
+            print("\n\nExecution interrupted by user", file=sys.stderr)
+            return 130  # Standard exit code for SIGINT
         except FileNotFoundError as e:
             print(f"Error: {e}", file=sys.stderr)
             return 1
@@ -381,6 +384,9 @@ GPL-3.0
             
             return 0
             
+        except KeyboardInterrupt:
+            print("\n\nOperation interrupted by user", file=sys.stderr)
+            return 130
         except Exception as e:
             print(f"Error creating profile: {e}", file=sys.stderr)
             return 1

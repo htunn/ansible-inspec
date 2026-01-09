@@ -224,6 +224,13 @@ class InSpecRunner:
                 timeout=300  # 5 minute timeout
             )
             
+            # Check if InSpec failed
+            if result.returncode != 0 and result.returncode != 100 and result.returncode != 101:
+                # InSpec returns 100 for failed tests, 101 for skipped tests
+                # Only treat other codes as errors
+                error_msg = result.stderr or result.stdout or "Unknown error"
+                raise RuntimeError(f"InSpec execution failed (code {result.returncode}): {error_msg}")
+            
             # Parse results
             if reporter == 'json':
                 self.results = self._parse_json_output(result.stdout)
@@ -244,6 +251,9 @@ class InSpecRunner:
             
             return self.results
             
+        except KeyboardInterrupt:
+            # Re-raise to allow graceful handling at CLI level
+            raise
         except subprocess.TimeoutExpired:
             raise RuntimeError("InSpec execution timed out (5 minutes)")
         except Exception as e:
