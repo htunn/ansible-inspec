@@ -65,11 +65,18 @@ class InSpecProfile:
         if is_supermarket:
             # Store supermarket URL as-is, InSpec handles it natively
             self.profile_path = profile_path if profile_path.startswith('supermarket://') else f'supermarket://{profile_path}'
+            # Create a cache directory for InSpec to use (InSpec has issues without git context)
+            self._ensure_inspec_cache()
         else:
             self.profile_path = os.path.abspath(profile_path)
         self.metadata: Dict[str, Any] = {}
         self.is_valid = False
         self.load()
+    
+    def _ensure_inspec_cache(self):
+        """Ensure InSpec cache directory exists"""
+        cache_dir = os.path.expanduser('~/.inspec/cache')
+        os.makedirs(cache_dir, exist_ok=True)
     
     def load(self):
         """Load the InSpec profile metadata"""
@@ -214,6 +221,9 @@ class InSpecRunner:
         
         # Add reporter
         cmd.extend(['--reporter', reporter])
+        
+        # Accept Chef license silently to avoid prompts
+        cmd.append('--chef-license=accept-silent')
         
         # Execute
         try:
