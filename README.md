@@ -81,7 +81,13 @@ Ansible-InSpec bridges the gap between **infrastructure automation** and **compl
 - **Ansible Integration**: Leverage Ansible's inventory and connection mechanisms
 - **Compliance Validation**: Validate security and compliance requirements across your infrastructure
 - **Multi-Platform Support**: Test Linux, Windows, macOS, and cloud platforms
-- **Human-Readable Tests**: Write tests in a clear, understandable languagePyPI (Recommended)
+- **Human-Readable Tests**: Write tests in a clear, understandable language
+- **Multi-Format Reporting**: Generate compliance reports in JSON, HTML, JUnit formats
+- **InSpec-Free Mode**: Run converted profiles without InSpec installation
+
+## Installation
+
+### From PyPI (Recommended)
 
 ```bash
 pip install ansible-inspec
@@ -102,6 +108,7 @@ See [Docker Usage Guide](docs/DOCKER.md) for detailed Docker instructions.
 ## Documentation
 
 - **[API Documentation](docs/API.md)** - Complete Python API and CLI reference
+- **[Quick Reference](docs/QUICK-REFERENCE.md)** - Common commands and workflows
 - **[Publishing Guide](docs/PUBLISHING-GUIDE.md)** - PyPI and Docker publishing instructions
 - **[Docker Usage](docs/DOCKER.md)** - Docker-specific usage and examples
 - **[Profile Conversion](docs/PROFILE-CONVERSION.md)** - Converting InSpec profiles to Ansible
