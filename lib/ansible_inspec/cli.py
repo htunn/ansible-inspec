@@ -92,6 +92,16 @@ For more information, visit: https://github.com/htunn/ansible-inspec
         action='store_true',
         help='Load profile from Chef Supermarket (e.g., dev-sec/linux-baseline)'
     )
+    exec_parser.add_argument(
+        '--reporter', '-r',
+        default='cli',
+        help='Reporter format: cli, json, yaml, html, junit, etc. '
+             'Supports multiple: "cli json:/path/file.json"'
+    )
+    exec_parser.add_argument(
+        '--output', '-o',
+        help='Output file path (default: .compliance-reports/<timestamp>-<format>)'
+    )
     
     # init command
     init_parser = subparsers.add_parser(
@@ -191,7 +201,8 @@ def main():
         
         try:
             # Handle Chef Supermarket profiles
-            if hasattr(args, 'supermarket') and args.supermarket:
+            is_supermarket = hasattr(args, 'supermarket') and args.supermarket
+            if is_supermarket:
                 # Create supermarket profile
                 profile = InSpecProfile.from_supermarket(args.profile)
                 print(f"Loading Chef Supermarket profile: {args.profile}")
@@ -205,7 +216,9 @@ def main():
                 profile_path=args.profile if not profile else profile.profile_path,
                 inventory_path=args.inventory,
                 target=args.target,
-                reporter='cli'
+                reporter=args.reporter,
+                output_path=args.output,
+                is_supermarket=is_supermarket
             )
             
             # Create and run
@@ -218,23 +231,64 @@ def main():
             
             result = runner.run(exec_config)
             
-            # Display results
-            print()
-            print("=" * 60)
-            print("EXECUTION SUMMARY")
-            print("=" * 60)
-            print(result.summary())
-            print(f"Total hosts: {result.total_hosts}")
-            print(f"Successful: {result.successful_hosts}")
-            print(f"Failed: {result.failed_hosts}")
+            # Save results to file if output specified or multi-reporter format
+            from ansible_inspec.reporters import parse_reporter_string, get_default_output_path
             
-            if result.errors:
+            reporters = parse_reporter_string(args.reporter)
+            for reporter_config in reporters:
+                reporter_format = reporter_config['format']
+                output_path = reporter_config['path']
+                
+                # Skip CLI reporter for file output
+                if reporter_format.lower() == 'cli':
+                    continue
+                
+                # Use specified path or generate default
+                if not output_path:
+                    if args.output:
+                        output_path = args.output
+                    else:
+                        profile_name = os.path.basename(exec_config.profile_path)
+                        output_path = get_default_output_path(reporter_format, profile_name)
+                
+                # Map reporter format to save method
+                format_map = {
+                    'json': 'json',
+                    'json-min': 'json',
+                    'json-rspec': 'json',
+                    'json-automate': 'json',
+                    'junit': 'junit',
+                    'junit2': 'junit',
+                    'html': 'html',
+                    'html2': 'html',
+                }
+                
+                save_format = format_map.get(reporter_format.lower())
+                if save_format:
+                    try:
+                        result.save(output_path, save_format)
+                        print(f"Report saved: {output_path}")
+                    except Exception as e:
+                        print(f"Warning: Failed to save {reporter_format} report: {e}", file=sys.stderr)
+            
+            # Display results (if CLI reporter included or only reporter)
+            if any(r['format'].lower() == 'cli' for r in reporters):
                 print()
-                print("ERRORS:")
-                for host, error in result.errors.items():
-                    print(f"  {host}: {error}")
-            
-            print()
+                print("=" * 60)
+                print("EXECUTION SUMMARY")
+                print("=" * 60)
+                print(result.summary())
+                print(f"Total hosts: {result.total_hosts}")
+                print(f"Successful: {result.successful_hosts}")
+                print(f"Failed: {result.failed_hosts}")
+                
+                if result.errors:
+                    print()
+                    print("ERRORS:")
+                    for host, error in result.errors.items():
+                        print(f"  {host}: {error}")
+                
+                print()
             
             # Return appropriate exit code
             return 0 if result.success else 1

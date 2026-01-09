@@ -197,6 +197,26 @@ Jobs:
 - Verify Dockerfile CMD/ENTRYPOINT is correct
 - Check if InSpec installation succeeded
 
+## Docker Image Tags
+
+Docker images are published with multiple tags:
+
+### Version Tags
+- `htunnthuthu/ansible-inspec:0.1.0` - Specific version
+- `htunnthuthu/ansible-inspec:0.1` - Minor version
+- `htunnthuthu/ansible-inspec:0` - Major version
+- `htunnthuthu/ansible-inspec:latest` - Latest stable release
+
+### Branch Tags
+- `htunnthuthu/ansible-inspec:main` - Main branch builds
+- `htunnthuthu/ansible-inspec:pr-123` - Pull request builds (testing only)
+
+### Multi-Architecture Support
+
+All images support:
+- `linux/amd64` - x86_64 systems
+- `linux/arm64` - ARM systems (Apple Silicon, AWS Graviton, etc.)
+
 ## Version Management
 
 We follow [Semantic Versioning](https://semver.org/):

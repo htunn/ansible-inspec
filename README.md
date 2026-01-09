@@ -99,10 +99,15 @@ docker run --rm htunnthuthu/ansible-inspec:latest --help
 
 See [Docker Usage Guide](docs/DOCKER.md) for detailed Docker instructions.
 
-### From Source
+## Documentation
 
-```bash
-git clone https://github.com/Htunn
+- **[API Documentation](docs/API.md)** - Complete Python API and CLI reference
+- **[Publishing Guide](docs/PUBLISHING-GUIDE.md)** - PyPI and Docker publishing instructions
+- **[Docker Usage](docs/DOCKER.md)** - Docker-specific usage and examples
+- **[Profile Conversion](docs/PROFILE-CONVERSION.md)** - Converting InSpec profiles to Ansible
+- **[Reporter Modes](docs/REPORTER-MODES.md)** - Native vs InSpec-free reporting
+- **[Chef Supermarket](docs/CHEF-SUPERMARKET.md)** - Accessing compliance profiles
+- **[Quick Start](docs/getting-started.md)** - Getting started guide
 
 ### From Source
 
@@ -134,9 +139,40 @@ ansible-inspec exec profile.rb -i inventory.yml
 # Run compliance tests on specific hosts
 ansible-inspec exec compliance/ --target ssh://user@hostname
 
-# Execute with Ansible playbook integration
-ansible-inspec playbook -p site.yml --verify compliance/
+# Execute with custom reporter and output
+ansible-inspec exec profile.rb -i inventory.yml --reporter json --output report.json
+
+# Multiple reporters
+ansible-inspec exec profile.rb -i inventory.yml --reporter "cli json:.compliance-reports/report.json html:.compliance-reports/report.html"
 ```
+
+### Reporter Options
+
+Generate compliance reports in multiple formats:
+
+```bash
+# JSON report (InSpec schema-compatible)
+ansible-inspec exec profile/ -i inventory.yml --reporter json -o .compliance-reports/report.json
+
+# HTML report
+ansible-inspec exec profile/ -i inventory.yml --reporter html -o .compliance-reports/report.html
+
+# JUnit XML for CI/CD integration
+ansible-inspec exec profile/ -i inventory.yml --reporter junit -o .compliance-reports/junit.xml
+
+# Multiple formats simultaneously
+ansible-inspec exec profile/ -i inventory.yml \
+  --reporter "cli json:.compliance-reports/results.json html:.compliance-reports/results.html"
+```
+
+**Supported Formats**:
+- `cli` - Human-readable console output (default)
+- `json` - InSpec JSON schema format
+- `html` - HTML report with summary and details
+- `junit` - JUnit XML for Jenkins/GitLab CI
+- `yaml` - YAML format output
+
+Reports are saved to `.compliance-reports/` by default, compatible with InSpec tooling including Chef Automate and CI/CD pipelines.
 
 ### Chef Supermarket Profiles
 
@@ -190,6 +226,30 @@ ansible-inspec convert ./profiles/linux-baseline \
 # Use the converted collection
 ansible-galaxy collection install ./collections/ansible_collections/example/custom_compliance/*.tar.gz
 ansible-playbook example.custom_compliance.compliance_check -i inventory.yml
+```
+
+**Automatic Compliance Reporting**: Converted collections include an auto-enabled callback plugin that generates InSpec-compatible reports in `.compliance-reports/`:
+
+```bash
+# Reports are automatically generated when running playbooks
+cd collections/ansible_collections/example/custom_compliance
+ansible-playbook playbooks/compliance_check.yml -i inventory.yml
+
+# Find reports in .compliance-reports/
+ls .compliance-reports/
+# 20260108-143022-example.custom_compliance-compliance_check.yml.json
+# 20260108-143022-example.custom_compliance-compliance_check.yml.html
+```
+
+Configure reporting in `ansible.cfg`:
+
+```ini
+[defaults]
+callbacks_enabled = compliance_reporter
+callback_result_dir = .compliance-reports
+
+[callback_compliance_reporter]
+output_format = json  # or html, junit
 ```
 
 **Conversion Features**:
@@ -516,3 +576,4 @@ Special thanks to:
 ## Disclaimer
 
 This is an independent project that integrates Ansible and InSpec. It is not officially endorsed by Red Hat, Progress Software, or Chef Software Inc. All trademarks belong to their respective owners.
+

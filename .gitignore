@@ -68,3 +68,6 @@ inspec.lock
 *.tar.gz
 *.zip
 ansible-inspec
+
+#test script
+*.sh

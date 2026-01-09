@@ -6,11 +6,17 @@ Licensed under GPL-3.0
 """
 
 import os
+import json
+from datetime import datetime
 from typing import Optional, Dict, Any, List
 from dataclasses import dataclass, field
 
 from ansible_inspec.ansible_adapter import AnsibleInventory, InventoryHost
 from ansible_inspec.inspec_adapter import InSpecProfile, InSpecRunner, InSpecResult
+from ansible_inspec.reporters import (
+    InSpecJSONReport, InSpecProfile as ReportProfile, InSpecControl,
+    InSpecStatistics, InSpecPlatform, get_default_output_path, parse_reporter_string
+)
 
 
 @dataclass
@@ -22,6 +28,8 @@ class ExecutionConfig:
     group: Optional[str] = None
     host: Optional[str] = None
     reporter: str = 'cli'
+    is_supermarket: bool = False  # Flag to indicate if profile is from Chef Supermarket
+    output_path: Optional[str] = None
     sudo: bool = False
     parallel: bool = False
     max_workers: int = 5
@@ -45,6 +53,229 @@ class ExecutionResult:
         """Get execution summary"""
         status = "SUCCESS" if self.success else "FAILED"
         return f"{status}: {self.successful_hosts}/{self.total_hosts} hosts passed"
+    
+    def to_json(self, profile_name: str = "ansible-inspec") -> str:
+        """
+        Export results to InSpec-compatible JSON format
+        
+        Args:
+            profile_name: Name of the profile for report
+            
+        Returns:
+            JSON string in InSpec schema format
+        """
+        report = InSpecJSONReport()
+        
+        # Aggregate all results
+        all_controls = []
+        total_duration = 0.0
+        
+        for host, result in self.host_results.items():
+            # Convert each InSpecResult to controls
+            for control in result.controls:
+                control_dict = {
+                    'id': control.get('id', 'unknown'),
+                    'title': control.get('title'),
+                    'desc': control.get('description'),
+                    'impact': control.get('impact', 0.5),
+                    'refs': control.get('refs', []),
+                    'tags': control.get('tags', {}),
+                    'code': control.get('code', ''),
+                    'source_location': control.get('source_location', {}),
+                    'results': control.get('results', [])
+                }
+                all_controls.append(control_dict)
+            
+            total_duration += result.duration
+        
+        # Create profile
+        profile = ReportProfile(
+            name=profile_name,
+            version='1.0.0',
+            sha256='',
+            title=f'{profile_name} compliance checks',
+            maintainer='ansible-inspec',
+            summary=f'Aggregated results from {self.total_hosts} host(s)',
+            license='GPL-3.0',
+            copyright='ansible-inspec contributors',
+            copyright_email='htunnthuthu.linux@gmail.com',
+            supports=[],
+            attributes=[],
+            groups=[],
+            controls=all_controls
+        )
+        
+        report.profiles.append(profile)
+        report.statistics = InSpecStatistics(duration=total_duration)
+        
+        # Add errors to report if any
+        json_dict = report.to_dict()
+        if self.errors:
+            json_dict['errors'] = dict(self.errors)
+        
+        import json as json_module
+        return json_module.dumps(json_dict, indent=2)
+    
+    def to_junit(self) -> str:
+        """
+        Export results to JUnit XML format
+        
+        Returns:
+            JUnit XML string
+        """
+        from xml.etree import ElementTree as ET
+        
+        # Create root testsuite
+        testsuite = ET.Element('testsuite', {
+            'name': 'ansible-inspec',
+            'tests': str(sum(r.total for r in self.host_results.values())),
+            'failures': str(sum(r.failed for r in self.host_results.values())),
+            'skipped': str(sum(r.skipped for r in self.host_results.values())),
+            'time': str(sum(r.duration for r in self.host_results.values()))
+        })
+        
+        # Add testcases for each host
+        for host, result in self.host_results.items():
+            for control in result.controls:
+                testcase = ET.SubElement(testsuite, 'testcase', {
+                    'name': f"{host}.{control.get('id', 'unknown')}",
+                    'classname': host,
+                    'time': str(control.get('duration', 0.0))
+                })
+                
+                # Add failures
+                for test_result in control.get('results', []):
+                    if test_result.get('status') == 'failed':
+                        failure = ET.SubElement(testcase, 'failure', {
+                            'message': test_result.get('message', 'Test failed')
+                        })
+                        failure.text = test_result.get('backtrace', '')
+        
+        return ET.tostring(testsuite, encoding='unicode')
+    
+    def to_html(self, title: str = "Compliance Report") -> str:
+        """
+        Export results to HTML format
+        
+        Args:
+            title: Report title
+            
+        Returns:
+            HTML string
+        """
+        passed = sum(r.passed for r in self.host_results.values())
+        failed = sum(r.failed for r in self.host_results.values())
+        skipped = sum(r.skipped for r in self.host_results.values())
+        total = sum(r.total for r in self.host_results.values())
+        
+        # Determine if there were execution errors vs test failures
+        has_execution_errors = len(self.errors) > 0
+        error_status = ""
+        if has_execution_errors:
+            error_status = '<p class="fail"><strong>⚠ Execution Errors:</strong> Some hosts failed to execute tests</p>'
+        
+        html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{title}</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; margin: 20px; }}
+        h1 {{ color: #333; }}
+        .summary {{ background: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 20px; }}
+        .pass {{ color: green; font-weight: bold; }}
+        .fail {{ color: red; font-weight: bold; }}
+        .skip {{ color: orange; font-weight: bold; }}
+        .warning {{ color: orange; background: #fff3cd; padding: 10px; border-left: 4px solid #ffc107; margin: 10px 0; }}
+        table {{ border-collapse: collapse; width: 100%; }}
+        th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+        th {{ background-color: #4CAF50; color: white; }}
+        tr:nth-child(even) {{ background-color: #f2f2f2; }}
+        pre {{ background: #f8f8f8; padding: 10px; border-radius: 3px; overflow-x: auto; }}
+    </style>
+</head>
+<body>
+    <h1>{title}</h1>
+    <div class="summary">
+        <h2>Summary</h2>
+        {error_status}
+        <p><strong>Total Hosts:</strong> {self.total_hosts}</p>
+        <p><strong>Successful Hosts:</strong> {self.successful_hosts}</p>
+        <p><strong>Failed Hosts:</strong> {self.failed_hosts}</p>
+        <p><strong>Total Tests:</strong> {total}</p>
+        <p class="pass">Passed: {passed}</p>
+        <p class="fail">Failed: {failed}</p>
+        <p class="skip">Skipped: {skipped}</p>
+    </div>
+    
+    <h2>Host Results</h2>
+    <table>
+        <tr>
+            <th>Host</th>
+            <th>Passed</th>
+            <th>Failed</th>
+            <th>Skipped</th>
+            <th>Total</th>
+            <th>Status</th>
+        </tr>
+"""
+        
+        for host, result in self.host_results.items():
+            status_class = "pass" if result.passed == result.total else "fail"
+            status = "PASS" if result.passed == result.total else "FAIL"
+            html += f"""        <tr>
+            <td>{host}</td>
+            <td>{result.passed}</td>
+            <td>{result.failed}</td>
+            <td>{result.skipped}</td>
+            <td>{result.total}</td>
+            <td class="{status_class}">{status}</td>
+        </tr>
+"""
+        
+        html += """    </table>
+"""
+        
+        # Add errors section if any
+        if self.errors:
+            html += """
+    <h2>Execution Errors</h2>
+    <div class="summary" style="background: #ffe6e6;">
+"""
+            for host, error in self.errors.items():
+                html += f"""        <p class="fail"><strong>{host}:</strong></p>
+        <pre>{error}</pre>
+"""
+            html += """    </div>
+"""
+        
+        html += """    <p><em>Generated by ansible-inspec on {}</em></p>
+</body>
+</html>""".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        
+        return html
+    
+    def save(self, path: str, format: str = 'json') -> None:
+        """
+        Save results to file in specified format
+        
+        Args:
+            path: Output file path
+            format: Output format (json, junit, html)
+        """
+        os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
+        
+        if format == 'json':
+            content = self.to_json()
+        elif format == 'junit':
+            content = self.to_junit()
+        elif format == 'html':
+            content = self.to_html()
+        else:
+            raise ValueError(f"Unsupported format: {format}")
+        
+        with open(path, 'w') as f:
+            f.write(content)
 
 
 class Config:
@@ -96,7 +327,10 @@ class Runner:
             ExecutionResult with test results
         """
         # Load InSpec profile
-        profile = InSpecProfile(execution_config.profile_path)
+        profile = InSpecProfile(
+            execution_config.profile_path,
+            is_supermarket=execution_config.is_supermarket
+        )
         
         # Determine targets
         targets = self._get_targets(execution_config)
