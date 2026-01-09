@@ -571,17 +571,6 @@ Special thanks to:
 - The InSpec team and community at Progress Chef
 - All contributors to both upstream projects
 
-## Roadmap
-
-- [x] Initial project structure and licensing
-- [ ] Core integration layer between Ansible and InSpec
-- [ ] CLI implementation
-- [ ] Ansible inventory support
-- [ ] InSpec profile execution engine
-- [ ] Documentation and examples
-- [ ] Test suite
-- [ ] Binary distribution
-- [ ] CI/CD pipeline
 
 ## Disclaimer
 
