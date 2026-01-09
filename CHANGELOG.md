@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-01-09
+
+### Fixed
+- Fixed UnboundLocalError when using `--supermarket` flag with reporters (duplicate `os` import in CLI)
+- Fixed graceful KeyboardInterrupt (Ctrl+C) handling - now exits cleanly with code 130
+- Fixed InSpec Supermarket profile execution in non-git directories by creating cache directory
+- Fixed empty report issue when InSpec fails - now shows proper error messages
+- Added `--chef-license=accept-silent` to avoid interactive license prompts
+
+### Improved
+- Better InSpec error reporting with return code checking (100=failed tests, 101=skipped)
+- Enhanced error messages for debugging InSpec execution failures
+- KeyboardInterrupt now preserved through subprocess calls for clean termination
+
 ## [0.1.1] - 2026-01-09
 
 ### Added
