@@ -13,7 +13,6 @@ WORKDIR /app
 # Copy project files
 COPY pyproject.toml README.md LICENSE NOTICE ./
 COPY lib/ lib/
-COPY bin/ bin/
 
 # Install the package
 RUN pip install --no-cache-dir --upgrade pip && \
