@@ -97,7 +97,7 @@ class ExecutionResult:
             maintainer='ansible-inspec',
             summary=f'Aggregated results from {self.total_hosts} host(s)',
             license='GPL-3.0',
-            copyright='ansible-inspec contributors',
+            copyright='Htunn Thu Thu',
             copyright_email='htunnthuthu.linux@gmail.com',
             supports=[],
             attributes=[],
@@ -182,16 +182,35 @@ class ExecutionResult:
     <style>
         body {{ font-family: Arial, sans-serif; margin: 20px; }}
         h1 {{ color: #333; }}
+        h2 {{ color: #555; margin-top: 30px; }}
+        h3 {{ color: #666; margin-top: 20px; }}
         .summary {{ background: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 20px; }}
         .pass {{ color: green; font-weight: bold; }}
         .fail {{ color: red; font-weight: bold; }}
         .skip {{ color: orange; font-weight: bold; }}
         .warning {{ color: orange; background: #fff3cd; padding: 10px; border-left: 4px solid #ffc107; margin: 10px 0; }}
-        table {{ border-collapse: collapse; width: 100%; }}
+        table {{ border-collapse: collapse; width: 100%; margin-bottom: 20px; }}
         th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
         th {{ background-color: #4CAF50; color: white; }}
         tr:nth-child(even) {{ background-color: #f2f2f2; }}
-        pre {{ background: #f8f8f8; padding: 10px; border-radius: 3px; overflow-x: auto; }}
+        pre {{ background: #f8f8f8; padding: 10px; border-radius: 3px; overflow-x: auto; font-size: 12px; }}
+        .control {{ margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }}
+        .control-header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }}
+        .control-id {{ font-weight: bold; font-size: 1.1em; }}
+        .control-title {{ color: #666; margin: 5px 0; }}
+        .control-impact {{ background: #e3f2fd; padding: 2px 8px; border-radius: 3px; font-size: 0.9em; }}
+        .test-result {{ margin: 5px 0; padding: 8px; border-left: 3px solid #ddd; background: #fafafa; }}
+        .test-result.passed {{ border-left-color: #4CAF50; background: #f1f8f4; }}
+        .test-result.failed {{ border-left-color: #f44336; background: #fef5f5; }}
+        .test-result.skipped {{ border-left-color: #ff9800; background: #fff8f0; }}
+        .badge {{ display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 0.85em; margin-left: 10px; }}
+        .badge.passed {{ background: #4CAF50; color: white; }}
+        .badge.failed {{ background: #f44336; color: white; }}
+        .badge.skipped {{ background: #ff9800; color: white; }}
+        .filter-buttons {{ margin: 20px 0; }}
+        .filter-btn {{ padding: 8px 16px; margin-right: 10px; border: 1px solid #ddd; background: white; cursor: pointer; border-radius: 3px; }}
+        .filter-btn.active {{ background: #4CAF50; color: white; border-color: #4CAF50; }}
+        .hidden {{ display: none; }}
     </style>
 </head>
 <body>
@@ -236,6 +255,85 @@ class ExecutionResult:
         html += """    </table>
 """
         
+        # Add detailed control results
+        html += """
+    <h2>Detailed Test Results</h2>
+    <div class="filter-buttons">
+        <button class="filter-btn active" onclick="filterControls('all')">All</button>
+        <button class="filter-btn" onclick="filterControls('passed')">Passed Only</button>
+        <button class="filter-btn" onclick="filterControls('failed')">Failed Only</button>
+        <button class="filter-btn" onclick="filterControls('skipped')">Skipped Only</button>
+    </div>
+"""
+        
+        # Group controls by host
+        for host, result in self.host_results.items():
+            if not result.controls:
+                continue
+                
+            html += f"""
+    <h3>Host: {host}</h3>
+"""
+            
+            for control in result.controls:
+                control_id = control.get('id', 'unknown')
+                control_title = control.get('title', 'No title')
+                control_desc = control.get('desc', '')
+                control_impact = control.get('impact', 0.5)
+                control_results = control.get('results', [])
+                
+                # Determine overall control status
+                control_status = 'passed'
+                if any(r.get('status') == 'failed' for r in control_results):
+                    control_status = 'failed'
+                elif any(r.get('status') == 'skipped' for r in control_results):
+                    control_status = 'skipped'
+                
+                impact_label = 'Critical' if control_impact >= 0.7 else ('Medium' if control_impact >= 0.4 else 'Low')
+                
+                html += f"""
+    <div class="control {control_status}-control" data-status="{control_status}">
+        <div class="control-header">
+            <div>
+                <span class="control-id">{control_id}</span>
+                <span class="badge {control_status}">{control_status.upper()}</span>
+            </div>
+            <span class="control-impact">Impact: {impact_label} ({control_impact})</span>
+        </div>
+        <p class="control-title">{control_title}</p>
+"""
+                
+                if control_desc:
+                    html += f"""        <p style="color: #666; font-size: 0.9em;">{control_desc}</p>
+"""
+                
+                # Show individual test results
+                if control_results:
+                    html += """        <div style="margin-top: 10px;">
+            <strong>Test Results:</strong>
+"""
+                    for test in control_results:
+                        status = test.get('status', 'unknown')
+                        code_desc = test.get('code_desc', 'No description')
+                        message = test.get('message', '')
+                        
+                        html += f"""            <div class="test-result {status}">
+                <strong>{status.upper()}:</strong> {code_desc}
+"""
+                        if message:
+                            html += f"""                <pre style="margin: 5px 0 0 0;">{message}</pre>
+"""
+                        html += """            </div>
+"""
+                    html += """        </div>
+"""
+                
+                html += """    </div>
+"""
+        
+        html += """
+"""
+        
         # Add errors section if any
         if self.errors:
             html += """
@@ -250,6 +348,29 @@ class ExecutionResult:
 """
         
         html += """    <p><em>Generated by ansible-inspec on {}</em></p>
+    
+    <script>
+        function filterControls(status) {{
+            // Update button states
+            document.querySelectorAll('.filter-btn').forEach(btn => {{
+                btn.classList.remove('active');
+            }});
+            event.target.classList.add('active');
+            
+            // Filter controls
+            document.querySelectorAll('.control').forEach(control => {{
+                if (status === 'all') {{
+                    control.style.display = 'block';
+                }} else {{
+                    if (control.classList.contains(status + '-control')) {{
+                        control.style.display = 'block';
+                    }} else {{
+                        control.style.display = 'none';
+                    }}
+                }}
+            }});
+        }}
+    </script>
 </body>
 </html>""".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         
@@ -348,8 +469,9 @@ class Runner:
         for target in targets:
             try:
                 # Run InSpec against this target
+                # Always use JSON reporter internally for parsing, convert later if needed
                 runner = InSpecRunner(profile, target.get('uri'))
-                test_result = runner.execute(reporter=execution_config.reporter)
+                test_result = runner.execute(reporter='json')
                 
                 # Store result
                 host_name = target.get('name', target.get('uri'))

@@ -783,7 +783,7 @@ class ProfileConverter:
             'name': self.config.collection_name,
             'version': self.config.version,
             'readme': 'README.md',
-            'authors': ['ansible-inspec contributors'],
+            'authors': ['Htunn Thu Thu'],
             'description': 'Compliance testing collection converted from InSpec profiles',
             'license': [self.config.license],
             'tags': ['compliance', 'security', 'inspec', 'testing'],

@@ -9,7 +9,7 @@ compliance and security testing capabilities.
 """
 
 __version__ = '0.1.0'
-__author__ = 'ansible-inspec contributors'
+__author__ = 'Htunn Thu Thu'
 __license__ = 'GPL-3.0'
 
 # Upstream project information

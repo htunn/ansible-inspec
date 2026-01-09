@@ -227,7 +227,7 @@ class CallbackModule(CallbackBase):
             'maintainer': 'ansible-inspec',
             'summary': f'Converted Ansible collection compliance checks',
             'license': 'GPL-3.0',
-            'copyright': 'ansible-inspec contributors',
+            'copyright': 'Htunn Thu Thu',
             'copyright_email': 'htunnthuthu.linux@gmail.com',
             'supports': [],
             'attributes': [],

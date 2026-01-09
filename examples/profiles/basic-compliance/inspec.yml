@@ -1,7 +1,7 @@
 name: basic-compliance
 title: Basic System Compliance Profile
-maintainer: ansible-inspec contributors
-copyright: ansible-inspec contributors
+maintainer: Htunn Thu Thu
+copyright: Htunn Thu Thu
 copyright_email: your@email.com
 license: GPL-3.0
 summary: Basic compliance checks for system configuration
