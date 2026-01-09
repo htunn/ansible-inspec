@@ -1,9 +1,10 @@
 name: Publish to PyPI
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_dispatch:
+  # push:
+  #   tags:
+  #     - "v*"
 
 permissions:
   id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
