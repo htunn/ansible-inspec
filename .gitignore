@@ -71,3 +71,4 @@ ansible-inspec
 
 #test script
 *.sh
+tmp/

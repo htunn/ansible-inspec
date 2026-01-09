@@ -3,7 +3,9 @@
 [![PyPI - Version](https://img.shields.io/pypi/v/ansible-inspec)](https://pypi.org/project/ansible-inspec/)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/ansible-inspec)](https://pypi.org/project/ansible-inspec/)
 [![Docker Image Version](https://img.shields.io/docker/v/htunnthuthu/ansible-inspec?label=docker)](https://hub.docker.com/r/htunnthuthu/ansible-inspec)
+[![Docker Pulls](https://img.shields.io/docker/pulls/htunnthuthu/ansible-inspec)](https://hub.docker.com/r/htunnthuthu/ansible-inspec)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
+[![GitHub Stars](https://img.shields.io/github/stars/Htunn/ansible-inspec?style=social)](https://github.com/Htunn/ansible-inspec)
 
 A compliance and infrastructure testing tool that combines the power of Ansible's automation capabilities with InSpec's compliance and security testing framework.
 
