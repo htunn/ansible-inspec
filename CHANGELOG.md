@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-01-09
+
+### Added
+- Detailed test results section in HTML reports with individual control details
+- Interactive filter buttons for HTML reports (All/Passed/Failed/Skipped controls)
+- Control impact levels and descriptions in HTML output
+- Individual test result display with status messages and error details
+
+### Fixed
+- HTML reporter now uses JSON internally to properly parse InSpec results
+- HTML reports now display all test data instead of empty results
+
+### Improved
+- Enhanced HTML report CSS styling for better readability
+- JavaScript-based filtering for easy navigation through test results
+
 ## [0.1.3] - 2026-01-09
 
 ### Fixed
