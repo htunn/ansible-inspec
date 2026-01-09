@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-01-09
+
+### Fixed
+- Fixed InSpec Supermarket profile execution requiring git context in current directory
+- Cache directory (`~/.inspec/cache`) is now automatically initialized as git repository
+- InSpec execution for Supermarket profiles now runs from cache directory with git context
+- Eliminates need for manual `git init .` workaround in non-git directories
+
 ## [0.1.2] - 2026-01-09
 
 ### Fixed
