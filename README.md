@@ -574,5 +574,15 @@ Special thanks to:
 
 ## Disclaimer
 
-This is an independent project that integrates Ansible and InSpec. It is not officially endorsed by Red Hat, Progress Software, or Chef Software Inc. All trademarks belong to their respective owners.
+ansible-inspec is an **independent open-source project** and is not officially affiliated with, endorsed by, or supported by Red Hat, Inc. (Ansible) or Progress Software Corporation (Chef InSpec).
+
+**Trademarks:**
+- "Ansible" is a registered trademark of Red Hat, Inc.
+- "InSpec" is a trademark of Progress Software Corporation.
+
+This project integrates with and builds upon these technologies under their respective open source licenses:
+- **Ansible**: GPL-3.0 License ([https://github.com/ansible/ansible](https://github.com/ansible/ansible))
+- **InSpec**: Apache-2.0 License ([https://github.com/inspec/inspec](https://github.com/inspec/inspec))
+
+The use of these names in this project is purely descriptive to indicate compatibility and integration. For official Ansible products and support, visit [Red Hat Ansible](https://www.ansible.com/). For official InSpec products and support, visit [Chef InSpec](https://www.chef.io/products/chef-inspec).
 
