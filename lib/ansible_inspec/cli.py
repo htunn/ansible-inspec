@@ -306,7 +306,6 @@ def main():
             return 1
     
     elif args.command == 'init':
-        import os
         import yaml
         
         profile_name = args.name
