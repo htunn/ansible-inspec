@@ -74,9 +74,24 @@ class InSpecProfile:
         self.load()
     
     def _ensure_inspec_cache(self):
-        """Ensure InSpec cache directory exists"""
+        """Ensure InSpec cache directory exists and is a git repository"""
         cache_dir = os.path.expanduser('~/.inspec/cache')
         os.makedirs(cache_dir, exist_ok=True)
+        
+        # Initialize as git repository if not already
+        # InSpec requires git context when fetching Supermarket profiles
+        git_dir = os.path.join(cache_dir, '.git')
+        if not os.path.exists(git_dir):
+            try:
+                subprocess.run(
+                    ['git', 'init'],
+                    cwd=cache_dir,
+                    capture_output=True,
+                    timeout=10
+                )
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                # Git not available or init failed - InSpec will handle the error
+                pass
     
     def load(self):
         """Load the InSpec profile metadata"""
@@ -225,13 +240,20 @@ class InSpecRunner:
         # Accept Chef license silently to avoid prompts
         cmd.append('--chef-license=accept-silent')
         
+        # Determine working directory
+        # For Supermarket profiles, run from cache directory (has git context)
+        cwd = None
+        if self.profile.is_supermarket:
+            cwd = os.path.expanduser('~/.inspec/cache')
+        
         # Execute
         try:
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=300  # 5 minute timeout
+                timeout=300,  # 5 minute timeout
+                cwd=cwd
             )
             
             # Check if InSpec failed
