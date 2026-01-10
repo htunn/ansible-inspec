@@ -18,7 +18,49 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
 
-__all__ = ['ProfileConverter', 'ConversionConfig', 'ConversionResult']
+__all__ = ['ProfileConverter', 'ConversionConfig', 'ConversionResult', 'sanitize_variable_name']
+
+
+def sanitize_variable_name(control_id: str) -> str:
+    """
+    Convert InSpec control ID to valid Ansible variable name.
+    
+    Ansible variable names must:
+    - Start with a letter or underscore
+    - Contain only letters, numbers, and underscores
+    
+    Args:
+        control_id: InSpec control ID (may contain special characters)
+    
+    Returns:
+        Sanitized variable name safe for use in Ansible
+    
+    Examples:
+        >>> sanitize_variable_name("2.2.27 (L1) Ensure Enable...")
+        'inspec_2_2_27_L1_Ensure_Enable'
+        >>> sanitize_variable_name("test-1.2.3")
+        'test_1_2_3'
+        >>> sanitize_variable_name("123test")
+        'inspec_123test'
+    """
+    # Replace all non-alphanumeric characters with underscores
+    sanitized = re.sub(r'[^a-zA-Z0-9_]', '_', control_id)
+    
+    # Remove consecutive underscores
+    sanitized = re.sub(r'_+', '_', sanitized)
+    
+    # Ensure it starts with a letter or underscore (not a digit)
+    if sanitized and sanitized[0].isdigit():
+        sanitized = 'inspec_' + sanitized
+    
+    # Remove leading and trailing underscores
+    sanitized = sanitized.strip('_')
+    
+    # Ensure it's not empty
+    if not sanitized:
+        sanitized = 'inspec_control'
+    
+    return sanitized
 
 
 @dataclass
@@ -527,6 +569,7 @@ class AnsibleTaskGenerator:
     def _generate_custom_resource_task(self, control: Dict, describe: Dict) -> Dict[str, Any]:
         """Generate task for custom InSpec resource using InSpec wrapper"""
         resource_name = describe['resource']
+        var_name = sanitize_variable_name(control['id'])
         
         return {
             'name': f"Execute custom resource check: {resource_name}",
@@ -534,8 +577,8 @@ class AnsibleTaskGenerator:
                 'cmd': f"inspec exec - -t local:// --controls {control['id']}",
                 'stdin': self._generate_custom_resource_control(control, describe)
             },
-            'register': f"inspec_{control['id']}_result",
-            'failed_when': f"inspec_{control['id']}_result.rc != 0",
+            'register': f"{var_name}_result",
+            'failed_when': f"{var_name}_result.rc != 0",
             'environment': {
                 'INSPEC_LOAD_PATH': '{{ role_path }}/files/libraries'
             }
@@ -543,14 +586,16 @@ class AnsibleTaskGenerator:
     
     def _generate_inspec_fallback_task(self, control: Dict, describe: Dict) -> Dict[str, Any]:
         """Generate InSpec wrapper task for unsupported resources"""
+        var_name = sanitize_variable_name(control['id'])
+        
         return {
             'name': f"Execute InSpec check for {describe['resource']}",
             'ansible.builtin.shell': {
                 'cmd': f"inspec exec - -t local:// --controls {control['id']}",
                 'stdin': self._generate_control_snippet(control, describe)
             },
-            'register': f"inspec_{control['id']}_result",
-            'failed_when': f"inspec_{control['id']}_result.rc != 0"
+            'register': f"{var_name}_result",
+            'failed_when': f"{var_name}_result.rc != 0"
         }
     
     def _generate_custom_resource_control(self, control: Dict, describe: Dict) -> str:

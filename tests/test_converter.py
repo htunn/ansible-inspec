@@ -12,7 +12,77 @@ from ansible_inspec.converter import (
     AnsibleTaskGenerator,
     ProfileConverter,
     ConversionConfig,
+    sanitize_variable_name,
 )
+
+
+class TestSanitizeVariableName:
+    """Test sanitize_variable_name functionality."""
+    
+    def test_simple_alphanumeric(self):
+        """Test sanitization of simple alphanumeric IDs."""
+        assert sanitize_variable_name("test123") == "test123"
+        assert sanitize_variable_name("abc_def") == "abc_def"
+    
+    def test_dots_in_version_numbers(self):
+        """Test sanitization of version numbers with dots."""
+        assert sanitize_variable_name("test-1.2.3") == "test_1_2_3"
+        assert sanitize_variable_name("2.2.27") == "inspec_2_2_27"
+    
+    def test_spaces_and_special_chars(self):
+        """Test sanitization of spaces and special characters."""
+        assert sanitize_variable_name("2.2.27 (L1) Ensure Enable computer and user accounts") == "inspec_2_2_27_L1_Ensure_Enable_computer_and_user_accounts"
+        assert sanitize_variable_name("test (with) parentheses") == "test_with_parentheses"
+        assert sanitize_variable_name("test-with-dashes") == "test_with_dashes"
+    
+    def test_starts_with_digit(self):
+        """Test sanitization when ID starts with a digit."""
+        assert sanitize_variable_name("123test") == "inspec_123test"
+        assert sanitize_variable_name("1.2.3.test") == "inspec_1_2_3_test"
+    
+    def test_consecutive_underscores(self):
+        """Test removal of consecutive underscores."""
+        assert sanitize_variable_name("test___multiple___underscores") == "test_multiple_underscores"
+        assert sanitize_variable_name("test...dots") == "test_dots"
+    
+    def test_trailing_leading_underscores(self):
+        """Test removal of trailing and leading underscores."""
+        assert sanitize_variable_name("_test_") == "test"
+        assert sanitize_variable_name("test...") == "test"
+    
+    def test_complex_cis_benchmark_ids(self):
+        """Test sanitization of complex CIS benchmark control IDs."""
+        # Real-world example from bug report
+        control_id = "2.2.27 (L1) Ensure Enable computer and user accounts to be trusted for delegation is set to Administrators (DC only)"
+        result = sanitize_variable_name(control_id)
+        
+        # Should be a valid Ansible variable name
+        assert result.startswith("inspec_2_2_27_L1_")
+        assert " " not in result
+        assert "(" not in result
+        assert ")" not in result
+        assert "." not in result[10:]  # After "inspec_2_2_27"
+        
+        # Should start with letter or underscore
+        assert result[0].isalpha() or result[0] == "_"
+        
+        # Should only contain alphanumeric and underscores
+        assert all(c.isalnum() or c == "_" for c in result)
+    
+    def test_empty_or_invalid_input(self):
+        """Test sanitization of empty or completely invalid input."""
+        # Empty string should return default
+        assert sanitize_variable_name("") == "inspec_control"
+        
+        # Only special characters should return default or sanitized version
+        result = sanitize_variable_name("...")
+        assert result != ""
+        assert all(c.isalnum() or c == "_" for c in result)
+    
+    def test_preserves_existing_valid_names(self):
+        """Test that already valid names are preserved."""
+        assert sanitize_variable_name("valid_control_name") == "valid_control_name"
+        assert sanitize_variable_name("Control123") == "Control123"
 
 
 @pytest.fixture
@@ -211,6 +281,51 @@ class TestAnsibleTaskGenerator:
         
         assert len(tasks) >= 1
         assert isinstance(tasks, list)
+    
+    def test_sanitize_variable_names_in_tasks(self):
+        """Test that variable names are sanitized in generated tasks."""
+        generator = AnsibleTaskGenerator({})
+        
+        # Control with special characters in ID (like from CIS benchmarks)
+        control = {
+            'id': '2.2.27 (L1) Ensure Enable computer',
+            'title': 'Test Control',
+            'describes': [{
+                'resource': 'unknown_resource',  # Force fallback
+                'argument': 'test',
+                'tests': [
+                    {'type': 'it', 'matcher': 'exist', 'negated': False},
+                ]
+            }]
+        }
+        
+        tasks = generator.generate_tasks([control], use_native=False)
+        
+        # Extract the actual task (should be inside a block)
+        assert len(tasks) >= 1
+        task_block = tasks[0]
+        assert 'block' in task_block
+        
+        # Find the task with register
+        actual_task = task_block['block'][0]
+        
+        # Verify the variable name is sanitized
+        assert 'register' in actual_task
+        var_name = actual_task['register']
+        
+        # Should be a valid Ansible variable name
+        assert " " not in var_name
+        assert "(" not in var_name
+        assert ")" not in var_name
+        assert "." not in var_name or var_name.startswith("inspec_")
+        
+        # Should match the expected sanitized format
+        expected_var_name = "inspec_2_2_27_L1_Ensure_Enable_computer_result"
+        assert var_name == expected_var_name
+        
+        # Verify failed_when also uses sanitized name
+        assert 'failed_when' in actual_task
+        assert expected_var_name in actual_task['failed_when']
 
 
 class TestProfileConverter:

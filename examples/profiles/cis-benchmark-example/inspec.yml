@@ -1,0 +1,7 @@
+name: cis-benchmark-example
+title: CIS Benchmark Example Profile
+version: 1.0.0
+summary: Example profile with CIS-style control IDs containing special characters
+maintainer: ansible-inspec
+copyright: ansible-inspec
+license: GPL-3.0
