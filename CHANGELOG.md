@@ -118,16 +118,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Licensed under GPL-3.0 (combining Ansible GPL-3.0 + InSpec Apache-2.0)
 - Full license compatibility documentation provided
 
-### Known Limitations
-- This is a skeleton implementation
-- Core integration between Ansible and InSpec not yet implemented
-- Profile execution engine pending
-- Test suite incomplete
-
-### Next Steps
-- Implement Ansible inventory adapter
-- Implement InSpec profile executor
-- Add comprehensive test suite
-- Build binary distribution system
-- Complete documentation
 
