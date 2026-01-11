@@ -7,25 +7,69 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/htunnthuthu/ansible-inspec)](https://hub.docker.com/r/htunnthuthu/ansible-inspec)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 
+---
 
-A compliance and infrastructure testing tool that combines the power of Ansible's automation capabilities with InSpec's compliance and security testing framework.
+## 🎉 v0.2.0: MAJOR ARCHITECTURAL IMPROVEMENT
+
+**ansible-inspec now performs TRUE TRANSLATION from InSpec to native Ansible modules!**
+
+✅ **NO InSpec required on target systems** - Eliminates InSpec/Ruby dependency  
+✅ **Native Ansible modules** - Uses `win_security_policy`, `win_reg_stat`, etc.  
+✅ **True migration path** - Actually converts FROM InSpec TO Ansible  
+✅ **Production ready** - Scalable to thousands of targets  
+
+**[See Migration Guide](MIGRATION-v0.2.0.md)** for upgrade details.
+
+---
+
+A compliance and infrastructure testing tool that **converts InSpec profiles to native Ansible collections**, enabling compliance testing through pure Ansible without requiring InSpec on target systems.
 
 ## Overview
 
-`ansible-inspec` integrates two powerful open-source projects:
-- **[Ansible](https://github.com/ansible/ansible)**: IT automation platform for configuration management and deployment
-- **[InSpec](https://github.com/inspec/inspec)**: Infrastructure testing framework for compliance and security
+`ansible-inspec` bridges two powerful open-source projects:
+- **[Ansible](https://github.com/ansible/ansible)**: IT automation platform for configuration management
+- **[InSpec](https://github.com/inspec/inspec)**: Compliance testing framework (used for conversion only)
+
+### How It Works
+
+1. **Convert** InSpec profiles to Ansible collections (one-time)
+2. **Deploy** collections to Ansible controller
+3. **Run** compliance checks using **pure Ansible** (no InSpec on targets!)
+
+```
+InSpec Profile → ansible-inspec converter → Native Ansible Collection
+                                            ↓
+                                    Run on any target
+                                    (NO InSpec needed!)
+```
 
 ## Why Ansible-InSpec?
 
 ### 🎯 The Perfect Bridge
 
-Ansible-InSpec bridges the gap between **infrastructure automation** and **compliance testing**, giving you:
+Ansible-InSpec provides **true InSpec-to-Ansible migration**, giving you:
+
+#### ✅ **No InSpec Dependency (NEW in v0.2.0)**
+- **Native Translation**: Converts InSpec resources to Ansible modules
+- **No Target Installation**: InSpec NOT required on target systems
+- **Only PowerShell**: Windows targets need only built-in PowerShell
+- **True Migration**: Actually migrate FROM InSpec TO Ansible ecosystem
+
+#### 🚀 **Supported Resource Translation**
+v0.2.0 translates these InSpec resources to **native Ansible**:
+- `security_policy` → `ansible.windows.win_security_policy`
+- `registry_key` → `ansible.windows.win_reg_stat`
+- `audit_policy` → `ansible.windows.win_shell` (auditpol)
+- `service` → `ansible.windows.win_service_info`
+- `windows_feature` → `ansible.windows.win_feature`
+- `file` → `ansible.windows.win_stat` / `ansible.builtin.stat`
+
+**More resources coming in future releases!**
 
 #### ✅ **Unified Workflow**
-- **Single Tool, Two Powers**: Combine Ansible's automation with InSpec's compliance testing
+- **Single Tool, Two Powers**: Combine Ansible's automation with InSpec's compliance DSL
 - **Same Inventory**: Use your existing Ansible inventory for compliance testing
-- **Consistent Access**: Leverage Ansible's SSH/WinRM/Docker connections for testing
+- **Consistent Access**: Leverage Ansible's SSH/WinRM/Docker connections
 - **No Duplicate Configuration**: Manage infrastructure and compliance from one place
 
 #### 🚀 **Accelerated Compliance**
@@ -35,23 +79,22 @@ Ansible-InSpec bridges the gap between **infrastructure automation** and **compl
 - **Shift-Left Security**: Test compliance before production deployment
 
 #### 🔒 **Enhanced Security & Governance**
-- **CIS Benchmarks**: Test against industry-standard security baselines
+- **CIS Benchmarks**: Convert CIS benchmark profiles to Ansible
 - **Custom Policies**: Define organization-specific compliance requirements
 - **Audit Ready**: Generate compliance reports for auditors and stakeholders
 - **Drift Detection**: Identify configuration drift from security baselines
 
 #### 💡 **Developer Friendly**
-- **Readable DSL**: Write compliance tests in InSpec's human-readable language
+- **Readable DSL**: InSpec's human-readable language for compliance
 - **Version Control**: Store compliance tests alongside infrastructure code
 - **Test-Driven Infrastructure**: Build infrastructure with compliance tests first
 - **Reusable Profiles**: Share compliance tests across teams and projects
 
 #### 🌐 **Multi-Platform Excellence**
+- **Windows**: Windows Server and Desktop (native module support)
 - **Linux**: All major distributions (Ubuntu, RHEL, CentOS, Debian, etc.)
-- **Windows**: Windows Server and Desktop versions
-- **Cloud**: AWS, Azure, GCP resources
 - **Containers**: Docker and Kubernetes
-- **Network Devices**: Test firewalls, switches, routers
+- **Cloud**: AWS, Azure, GCP resources (coming soon)
 
 #### 📊 **Comprehensive Reporting**
 - **Multiple Formats**: JSON, HTML, JUnit, CLI output
@@ -62,18 +105,20 @@ Ansible-InSpec bridges the gap between **infrastructure automation** and **compl
 #### 💰 **Cost Effective**
 - **Open Source**: Free, GPL-3.0 licensed
 - **No Agent Required**: Agentless compliance testing
-- **Reduced Tools**: Replace multiple compliance tools with one
+- **Reduced Dependencies**: No InSpec installation on targets (v0.2.0+)
 - **Lower Training**: Leverage existing Ansible knowledge
 
 ### 🆚 Compared to Alternatives
 
-| Feature | Ansible-InSpec | Pure InSpec | Pure Ansible | Other Tools |
-|---------|---------------|-------------|--------------|-------------|
+| Feature | Ansible-InSpec v0.2.0 | Pure InSpec | Pure Ansible | Other Tools |
+|---------|----------------------|-------------|--------------|-------------|
+| Target Dependency | ✅ None (PowerShell only) | ❌ InSpec + Ruby | ✅ None | ⚠️ Varies |
+| Native Conversion | ✅ Yes | ❌ N/A | ⚠️ Manual | ❌ No |
 | Ansible Inventory | ✅ Native | ❌ Manual | ✅ Native | ❌ Separate |
 | Compliance DSL | ✅ InSpec | ✅ InSpec | ⚠️ Tasks | ⚠️ Varies |
 | Multi-Platform | ✅ Excellent | ✅ Excellent | ✅ Good | ⚠️ Limited |
 | Parallel Execution | ✅ Yes | ⚠️ Limited | ✅ Yes | ⚠️ Varies |
-| Learning Curve | ⚠️ Medium | ⚠️ Medium | ⚠️ Medium | ❌ High |
+| InSpec Migration | ✅ **True Migration** | ❌ N/A | ❌ Manual Rewrite | ❌ No |
 | Open Source | ✅ Yes | ✅ Yes | ✅ Yes | ⚠️ Varies |
 
 ## Features

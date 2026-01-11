@@ -5,6 +5,10 @@ This module converts Ruby-based InSpec profiles into Ansible collections,
 enabling compliance testing through native Ansible playbooks and roles.
 Supports custom InSpec resources from libraries/ directory.
 
+v0.2.0: Major architectural change - translates InSpec resources to native
+Ansible modules instead of wrapping InSpec commands. This eliminates the
+requirement to install InSpec on target systems.
+
 Copyright (C) 2026 ansible-inspec project contributors
 Licensed under GPL-3.0
 """
@@ -17,6 +21,9 @@ import shutil
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
+
+# Import resource translators
+from .translators import get_translator, RESOURCE_MAPPINGS
 
 __all__ = ['ProfileConverter', 'ConversionConfig', 'ConversionResult', 'sanitize_variable_name']
 
@@ -353,12 +360,42 @@ class AnsibleTaskGenerator:
         return tasks
     
     def _generate_native_tasks(self, control: Dict, describe: Dict) -> List[Dict[str, Any]]:
-        """Generate native Ansible tasks for a describe block"""
+        """
+        Generate native Ansible tasks for a describe block.
+        
+        v0.2.0: Uses resource translators to convert InSpec resources to native
+        Ansible modules, eliminating the need for InSpec on target systems.
+        
+        Args:
+            control: Parsed control data with id, title, etc.
+            describe: Parsed describe block with resource and expectations
+        
+        Returns:
+            List of native Ansible tasks (or InSpec fallback if unsupported)
+        """
         resource = describe['resource']
         
+        # Try to get a translator for this resource type
+        translator = get_translator(resource)
+        
+        if translator and translator.can_translate(describe):
+            # Use native translator - NO InSpec required!
+            translation_result = translator.translate(control['id'], describe)
+            
+            # Log any warnings
+            for warning in translation_result.warnings:
+                # Could add to conversion result warnings
+                pass
+            
+            # If translation succeeded, return native tasks
+            if translation_result.tasks and not translation_result.requires_inspec:
+                return translation_result.tasks
+            # Otherwise fall through to legacy handling
+        
+        # Legacy fallback for resources not yet migrated to translator pattern
         if resource in ['file', 'directory']:
             return self._generate_file_tasks(describe)
-        elif resource == 'service':
+        elif resource == 'service' and not translator:
             return self._generate_service_tasks(describe)
         elif resource == 'package':
             return self._generate_package_tasks(describe)
@@ -371,6 +408,7 @@ class AnsibleTaskGenerator:
         elif resource == 'kernel_parameter':
             return self._generate_kernel_parameter_tasks(describe)
         else:
+            # No translator and no legacy support - use InSpec fallback
             return [self._generate_inspec_fallback_task(control, describe)]
     
     def _generate_file_tasks(self, describe: Dict) -> List[Dict[str, Any]]:
