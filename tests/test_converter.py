@@ -202,6 +202,89 @@ end
         assert controls[0]['title'] == 'Test Control'
         assert len(controls[0]['describes']) >= 1
     
+    def test_parse_control_with_quotes_in_id(self):
+        """Test parsing control IDs containing single quotes (Bug #1 regression test)."""
+        # Real-world CIS benchmark control ID with embedded quotes
+        control_code = '''
+control "1.1.1 (L1) Ensure 'Enforce password history' is set to '7 password(s)'" do
+  impact 1.0
+  title "Enforce password history"
+  desc "This setting determines the number of unique new passwords"
+  
+  describe file('/etc/security/pwquality.conf') do
+    it { should exist }
+  end
+end
+        '''
+        parser = InSpecControlParser(control_code)
+        
+        controls = parser.parse()
+        
+        # Should successfully parse the control
+        assert len(controls) == 1
+        assert controls[0]['id'] == "1.1.1 (L1) Ensure 'Enforce password history' is set to '7 password(s)'"
+        assert controls[0]['impact'] == 1.0
+        assert controls[0]['title'] == 'Enforce password history'
+    
+    def test_parse_control_with_double_quotes_in_single_quoted_id(self):
+        """Test parsing control IDs with double quotes inside single-quoted strings."""
+        control_code = '''
+control 'test-id-with-"double"-quotes' do
+  impact 0.5
+  title 'Test'
+  
+  describe file('/test') do
+    it { should exist }
+  end
+end
+        '''
+        parser = InSpecControlParser(control_code)
+        
+        controls = parser.parse()
+        
+        assert len(controls) == 1
+        assert controls[0]['id'] == 'test-id-with-"double"-quotes'
+    
+    def test_parse_multiple_controls_with_quotes(self):
+        """Test parsing multiple controls with quotes in IDs."""
+        control_code = '''
+control "2.2.27 (L1) Ensure 'Enable computer' is set" do
+  impact 1.0
+  title "Test 1"
+  
+  describe file('/etc/test1') do
+    it { should exist }
+  end
+end
+
+control "2.2.61 Recovery console: Allow 'floppy copy'" do
+  impact 0.8
+  title "Test 2"
+  
+  describe file('/etc/test2') do
+    it { should exist }
+  end
+end
+
+control "simple-id" do
+  impact 0.5
+  title "Test 3"
+  
+  describe file('/etc/test3') do
+    it { should exist }
+  end
+end
+        '''
+        parser = InSpecControlParser(control_code)
+        
+        controls = parser.parse()
+        
+        # All 3 controls should be parsed successfully
+        assert len(controls) == 3
+        assert controls[0]['id'] == "2.2.27 (L1) Ensure 'Enable computer' is set"
+        assert controls[1]['id'] == "2.2.61 Recovery console: Allow 'floppy copy'"
+        assert controls[2]['id'] == "simple-id"
+    
     def test_parse_control_file(self, temp_profile_dir):
         """Test parsing control from file."""
         control_file = temp_profile_dir / "controls" / "example.rb"

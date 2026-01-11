@@ -166,8 +166,9 @@ class InSpecControlParser:
     Parses Ruby InSpec control blocks into structured data
     """
     
+    # Fixed pattern: properly handles control IDs containing quotes
     CONTROL_PATTERN = re.compile(
-        r"control\s+['\"]([^'\"]+)['\"]\s+do(.*?)^end",
+        r"control\s+(['\"])(.+?)\1\s+do(.*?)^end",
         re.MULTILINE | re.DOTALL
     )
     
@@ -193,9 +194,10 @@ class InSpecControlParser:
         """Parse InSpec control file and extract controls"""
         controls = []
         
+        # Updated to use group 2 for control_id, group 3 for body (added quote capture group)
         for match in self.CONTROL_PATTERN.finditer(self.content):
-            control_id = match.group(1)
-            control_body = match.group(2)
+            control_id = match.group(2)
+            control_body = match.group(3)
             
             control_data = {
                 'id': control_id,

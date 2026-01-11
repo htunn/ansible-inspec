@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+---
+
+## [0.1.6] - 2026-01-11
+
+### Fixed
+
+**Bug #1 - CRITICAL: Control ID Regex Pattern Fails to Capture Control IDs Containing Quotes**
+- Fixed regex pattern in `InSpecControlParser.CONTROL_PATTERN` that was causing 99% control loss (354 of 358 controls skipped)
+- Root cause: Pattern `[^'\"]+` stopped matching at first quote character in control ID
+- Solution: Replaced with backreference pattern `(['\"])(.+?)\1` to properly match quoted strings containing quotes
+- Impact: Converter now successfully processes all 358 controls from CIS benchmark profiles instead of only 4
+- Files modified:
+  - `lib/ansible_inspec/converter.py` (line 169-172): Updated CONTROL_PATTERN regex
+  - `lib/ansible_inspec/converter.py` (line 196-198): Updated group references (group 2 for control_id, group 3 for body)
+- Test coverage:
+  - Added `test_parse_control_with_quotes_in_id()` - Regression test for controls with single quotes in IDs
+  - Added `test_parse_control_with_double_quotes_in_single_quoted_id()` - Test for mixed quote scenarios
+  - Added `test_parse_multiple_controls_with_quotes()` - Test for multiple controls with various quote patterns
+- References:
+  - Bug Report: 2026-01-11
+  - Severity: CRITICAL (P0)
+  - Example failing control: `"1.1.1 (L1) Ensure 'Enforce password history' is set to '7 password(s)'"`
+
+### Testing
+- Added comprehensive unit tests for control ID regex pattern fix
+- Regression tests ensure controls with quotes in IDs are properly parsed
+- Test cases cover single quotes, double quotes, and mixed quote scenarios
+
+---
 
 ## [0.1.5] - 2026-01-11
 

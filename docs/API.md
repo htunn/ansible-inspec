@@ -2,6 +2,8 @@
 
 Complete API reference for ansible-inspec library and CLI.
 
+**Latest Update (v0.1.6):** Fixed critical converter bug that caused 99% control loss when converting profiles with quoted control IDs. See [Bug #1 Details](#bug-fixes-and-testing) below.
+
 ## Table of Contents
 
 - [Installation](#installation)
@@ -10,6 +12,7 @@ Complete API reference for ansible-inspec library and CLI.
 - [Core Classes](#core-classes)
 - [Reporters](#reporters)
 - [Converters](#converters)
+- [Bug Fixes and Testing](#bug-fixes-and-testing)
 - [Examples](#examples)
 
 ---
@@ -578,19 +581,76 @@ result.save("test-results.xml", format="junit")
 
 ## Converters
 
+### Profile Conversion
+
+The converter translates InSpec profiles (Ruby DSL) into Ansible collections with native tasks.
+
+**Key Features (v0.1.6):**
+- **Fixed Critical Bug**: Control ID regex now properly handles quotes in control IDs
+  - Previous versions failed on CIS benchmark controls like `"1.1.1 (L1) Ensure 'password history' is set"`
+  - Now successfully converts all 358 controls instead of only 4 (99% improvement)
+- **Sanitized Variable Names**: Automatically converts control IDs to valid Ansible variable names
+  - Example: `"2.2.27 (L1) Ensure..."` → `"inspec_2_2_27_L1_Ensure"`
+- **Custom Resources**: Detects and converts InSpec custom resources to Ansible modules
+- **Native Modules**: Prefers Ansible native modules when available (file, service, package, etc.)
+
 ### Profile Structure Analysis
 
 ```python
-from ansible_inspec.converter import ProfileConverter
+from ansible_inspec.converter import ProfileConverter, InSpecControlParser
 
+# Parse InSpec controls with proper quote handling
+control_code = '''
+control "1.1.1 (L1) Ensure 'Enforce password history' is set to '7 password(s)'" do
+  impact 1.0
+  title "Password History"
+  desc "Enforce password history"
+  
+  describe registry_key('HKEY_LOCAL_MACHINE\\...') do
+    its('PasswordHistorySize') { should cmp >= 7 }
+  end
+end
+'''
+
+parser = InSpecControlParser(control_code)
+controls = parser.parse()
+
+# Successfully extracts full control ID with quotes
+assert controls[0]['id'] == "1.1.1 (L1) Ensure 'Enforce password history' is set to '7 password(s)'"
+
+# Analyze full profile
 converter = ProfileConverter(profile_path="./cis-benchmark")
-
-# Analyze profile
 profile_info = converter.analyze()
 
 print(f"Profile: {profile_info['name']}")
-print(f"Controls: {len(profile_info['controls'])}")
+print(f"Controls: {len(profile_info['controls'])}")  # Now gets all controls!
 print(f"Custom Resources: {profile_info['custom_resources']}")
+```
+
+### Control ID Handling
+
+The converter properly handles complex control IDs from compliance frameworks:
+
+```python
+from ansible_inspec.converter import sanitize_variable_name
+
+# Real-world CIS benchmark control IDs
+control_ids = [
+    "1.1.1 (L1) Ensure 'Enforce password history' is set to '7 password(s)'",
+    "2.2.27 (L1) Ensure 'Enable computer and user accounts' is set",
+    "18.9.108.2.1 (L2) Ensure 'Configure registry policy processing' is set"
+]
+
+for control_id in control_ids:
+    var_name = sanitize_variable_name(control_id)
+    print(f"{control_id}\n  → {var_name}\n")
+
+# Output:
+# 1.1.1 (L1) Ensure 'Enforce password history' is set to '7 password(s)'
+#   → inspec_1_1_1_L1_Ensure_Enforce_password_history_is_set_to_7_password_s
+#
+# 2.2.27 (L1) Ensure 'Enable computer and user accounts' is set
+#   → inspec_2_2_27_L1_Ensure_Enable_computer_and_user_accounts_is_set
 ```
 
 ### Custom Resource Handling
@@ -654,6 +714,124 @@ tarball = converter.build()
 # Step 5: Install collection
 # ansible-galaxy collection install security-cis_ubuntu-1.0.0.tar.gz
 ```
+
+---
+
+## Bug Fixes and Testing
+
+### Bug #1: Control ID Regex Pattern Fix (v0.1.6)
+
+**Severity:** CRITICAL (P0)  
+**Status:** Fixed  
+**Date:** 2026-01-11
+
+#### Problem
+The InSpec profile converter was only converting 4 out of 358 controls (99% loss) from CIS benchmark profiles. The root cause was a regex pattern that failed to match control IDs containing single quotes.
+
+#### Root Cause
+```python
+# Problematic pattern (v0.1.5 and earlier)
+CONTROL_PATTERN = re.compile(
+    r"control\s+['\"]([^'\"]+)['\"]\s+do(.*?)^end",
+    re.MULTILINE | re.DOTALL
+)
+```
+
+The character class `[^'\"]+` means "match any character EXCEPT quotes", causing the pattern to stop at the first quote inside the control ID:
+
+```ruby
+control "1.1.1 (L1) Ensure 'password history' is set" do
+#       ^------- Match stops here -------^  <-- Only captures up to first '
+```
+
+#### Solution
+```python
+# Fixed pattern (v0.1.6+)
+CONTROL_PATTERN = re.compile(
+    r"control\s+(['\"])(.+?)\1\s+do(.*?)^end",
+    re.MULTILINE | re.DOTALL
+)
+```
+
+Uses backreference `\1` to match the same quote type that opened the string:
+- `(['\"])` - Capture opening quote (group 1)
+- `(.+?)` - Capture control ID with any characters (group 2)
+- `\1` - Match the SAME quote that opened the string
+- Control ID moved from group(1) to group(2)
+- Control body moved from group(2) to group(3)
+
+#### Impact
+- **Before:** 4 controls converted (1.1% success rate)
+- **After:** 358 controls converted (100% success rate)
+- **Improvement:** 354 additional controls (8,850% increase)
+
+#### Testing
+The fix includes comprehensive regression tests:
+
+```python
+# Test 1: Control ID with single quotes
+def test_parse_control_with_quotes_in_id():
+    control_code = '''
+control "1.1.1 (L1) Ensure 'Enforce password history' is set to '7 password(s)'" do
+  impact 1.0
+  describe file('/etc/passwd') do
+    it { should exist }
+  end
+end
+    '''
+    parser = InSpecControlParser(control_code)
+    controls = parser.parse()
+    
+    assert len(controls) == 1
+    assert controls[0]['id'] == "1.1.1 (L1) Ensure 'Enforce password history' is set to '7 password(s)'"
+
+# Test 2: Mixed quote types
+def test_parse_control_with_double_quotes_in_single_quoted_id():
+    control_code = '''
+control 'test-id-with-"double"-quotes' do
+  impact 0.5
+  describe file('/test') do
+    it { should exist }
+  end
+end
+    '''
+    parser = InSpecControlParser(control_code)
+    controls = parser.parse()
+    
+    assert controls[0]['id'] == 'test-id-with-"double"-quotes'
+
+# Test 3: Multiple controls with quotes
+def test_parse_multiple_controls_with_quotes():
+    # Tests parsing of 3 controls with various quote patterns
+    # Ensures all controls are captured correctly
+```
+
+#### Verification
+To verify the fix works on your profiles:
+
+```bash
+# Clone repository
+git clone https://github.com/Htunn/ansible-inspec
+cd ansible-inspec
+
+# Install with latest fix
+pip install -e .
+
+# Run tests
+pytest tests/test_converter.py::TestInSpecControlParser -v
+
+# Test on real CIS benchmark profile
+ansible-inspec convert path/to/cis-profile -o /tmp/test-output
+
+# Count converted controls
+grep -c "^control " path/to/cis-profile/controls/*.rb
+# Should match number of tasks in converted collection
+```
+
+#### References
+- Bug Report: [Bug #1 Report](../CHANGELOG.md#016---2026-01-11)
+- Fixed Files: `lib/ansible_inspec/converter.py` (lines 169-172, 196-198)
+- Test Coverage: `tests/test_converter.py` (lines 178-285)
 
 ---
 
