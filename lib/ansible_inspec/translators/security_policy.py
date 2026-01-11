@@ -1,8 +1,9 @@
 """
 SecurityPolicy Translator - Convert InSpec security_policy to Ansible
 
-Translates InSpec security_policy checks to native Ansible 
-ansible.windows.win_security_policy module calls.
+Translates InSpec security_policy checks to native Ansible using secedit.
+Since ansible.windows.win_security_policy does NOT exist, we use secedit
+via win_shell to export and parse Local Security Policy settings.
 
 Copyright (C) 2026 ansible-inspec project contributors
 Licensed under GPL-3.0
@@ -14,7 +15,10 @@ from .base import ResourceTranslator, TranslationResult
 
 class SecurityPolicyTranslator(ResourceTranslator):
     """
-    Translates InSpec security_policy resource to Ansible win_security_policy.
+    Translates InSpec security_policy resource to Ansible using secedit.
+    
+    NOTE: ansible.windows.win_security_policy does NOT exist in the collection.
+    This translator uses secedit command via win_shell as a workaround.
     
     InSpec Example:
         describe security_policy do
@@ -24,16 +28,22 @@ class SecurityPolicyTranslator(ResourceTranslator):
         end
     
     Ansible Output:
-        - name: Get security policy settings
-          ansible.windows.win_security_policy:
-            section: System Access
-          register: security_policy_result
+        - name: Export security policy with secedit
+          ansible.windows.win_shell: |
+            secedit /export /cfg $env:TEMP\\secpol.cfg /areas SECURITYPOLICY /quiet
+            Get-Content $env:TEMP\\secpol.cfg
+            Remove-Item $env:TEMP\\secpol.cfg -Force
+          register: secpol_export
+          changed_when: false
+        
+        - name: Parse security policy value
+          ansible.builtin.set_fact:
+            max_password_age: "{{ (secpol_export.stdout_lines | select('match', '^MaximumPasswordAge') | first | split('=') | last | trim) }}"
         
         - name: Validate Maximum Password Age
           ansible.builtin.assert:
             that:
-              - security_policy_result.MaximumPasswordAge == 365
-            fail_msg: "MaximumPasswordAge should be 365, got {{ security_policy_result.MaximumPasswordAge }}"
+              - max_password_age | int == 365
     """
     
     # Map property names to security policy sections
@@ -60,55 +70,80 @@ class SecurityPolicyTranslator(ResourceTranslator):
     
     def translate(self, control_id: str, describe: Dict[str, Any]) -> TranslationResult:
         """
-        Translate security_policy checks to native Ansible tasks.
+        Translate security_policy checks to Ansible tasks using secedit.
         
         Args:
             control_id: InSpec control ID
             describe: Parsed describe block with tests
         
         Returns:
-            TranslationResult with Ansible tasks using win_security_policy
+            TranslationResult with Ansible tasks using secedit via win_shell
         """
         result = TranslationResult()
-        var_name = self._sanitize_variable_name(f"{control_id}_security_policy")
+        var_name = self._sanitize_variable_name(f"{control_id}_secpol")
         
-        # Determine which section(s) to query
-        sections = self._determine_sections(describe)
+        # Collect all properties we need to check
+        properties = []
+        for test in describe.get('tests', []):
+            if test['type'] == 'its':
+                properties.append(test['property'])
         
-        if not sections:
-            # No recognized properties - fallback required
+        if not properties:
             result.warnings.append(
-                f"security_policy check in control {control_id} has no recognized properties"
+                f"security_policy check in control {control_id} has no properties to check"
             )
             result.requires_inspec = True
             return result
         
-        # Task 1: Get security policy settings
-        # Note: win_security_policy returns all settings when no specific key is requested
-        fetch_task = {
-            'name': f"Get security policy settings for control {control_id}",
-            'ansible.windows.win_security_policy': {
-                'section': sections[0]  # Use first section (most have same section)
-            },
-            'register': var_name
+        # Task 1: Export security policy using secedit
+        # This exports to a temp file, reads it, and cleans up
+        export_task = {
+            'name': f"Export security policy for control {control_id}",
+            'ansible.windows.win_shell': (
+                "secedit /export /cfg $env:TEMP\\secpol_{}.cfg /areas SECURITYPOLICY /quiet | Out-Null; "
+                "Get-Content $env:TEMP\\secpol_{}.cfg; "
+                "Remove-Item $env:TEMP\\secpol_{}.cfg -Force -ErrorAction SilentlyContinue"
+            ).format(var_name, var_name, var_name),
+            'register': f"{var_name}_export",
+            'changed_when': False
         }
-        result.tasks.append(fetch_task)
+        result.tasks.append(export_task)
         
-        # Task 2: Add assertions for each test
+        # Task 2: Parse each policy value from the exported data
+        for prop in properties:
+            parse_task = {
+                'name': f"Parse {prop} from security policy",
+                'ansible.builtin.set_fact': {
+                    f"{var_name}_{prop}": (
+                        "{{{{ ({var}_export.stdout_lines | "
+                        "select('match', '^{prop}\\s*=') | "
+                        "first | default('{prop} = 0') | "
+                        "regex_replace('^{prop}\\s*=\\s*(.*)$', '\\\\1') | "
+                        "trim) }}}}"
+                    ).format(var=var_name, prop=prop)
+                }
+            }
+            result.tasks.append(parse_task)
+        
+        # Task 3: Build assertions for validation
         assertions = []
         for test in describe.get('tests', []):
             if test['type'] == 'its':
                 property_name = test['property']
-                property_path = f"{var_name}.{property_name}"
+                property_path = f"{var_name}_{property_name}"
                 
-                # Extract operator and value from the test
+                # Extract operator and value
                 operator = test.get('operator')
                 value = test['value']
                 
                 # If value includes operator (like '== 365'), parse it
                 if operator and value.startswith(operator):
-                    # Remove operator from value
                     value = value[len(operator):].strip()
+                
+                # Convert to integer if value is numeric
+                if value.isdigit():
+                    property_path = f"{property_path} | int"
+                    value = int(value)
                 
                 assertion = self._convert_matcher_to_assertion(
                     property_path,

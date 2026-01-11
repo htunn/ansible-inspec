@@ -8,29 +8,6 @@
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 
 ---
-
-## 🎉 v0.2.2: Dynamic Custom Resources Support
-
-**ansible-inspec now automatically translates custom InSpec resources to native Ansible!**
-
-✅ **Auto-detects custom resources** - Analyzes Ruby code patterns automatically  
-✅ **Native Ansible translation** - Converts DISM, PowerShell, WMI, and more  
-✅ **Future-proof** - Supports any custom resource encountered  
-✅ **100% native** - Zero InSpec commands in generated collections  
-
-### v0.2.0: MAJOR ARCHITECTURAL IMPROVEMENT
-
-**ansible-inspec performs TRUE TRANSLATION from InSpec to native Ansible modules!**
-
-✅ **NO InSpec required on target systems** - Eliminates InSpec/Ruby dependency  
-✅ **Native Ansible modules** - Uses `win_security_policy`, `win_reg_stat`, etc.  
-✅ **True migration path** - Actually converts FROM InSpec TO Ansible  
-✅ **Production ready** - Scalable to thousands of targets  
-
-**[See Migration Guide](MIGRATION-v0.2.0.md)** for upgrade details.
-
----
-
 A compliance and infrastructure testing tool that **converts InSpec profiles to native Ansible collections**, enabling compliance testing through pure Ansible without requiring InSpec on target systems.
 
 ## Overview
@@ -39,18 +16,6 @@ A compliance and infrastructure testing tool that **converts InSpec profiles to 
 - **[Ansible](https://github.com/ansible/ansible)**: IT automation platform for configuration management
 - **[InSpec](https://github.com/inspec/inspec)**: Compliance testing framework (used for conversion only)
 
-### How It Works
-
-1. **Convert** InSpec profiles to Ansible collections (one-time)
-2. **Deploy** collections to Ansible controller
-3. **Run** compliance checks using **pure Ansible** (no InSpec on targets!)
-
-```
-InSpec Profile → ansible-inspec converter → Native Ansible Collection
-                                            ↓
-                                    Run on any target
-                                    (NO InSpec needed!)
-```
 
 ## Why Ansible-InSpec?
 

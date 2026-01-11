@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.3] - 2025-01-14
+
+### Fixed
+- **CRITICAL**: Rewrote SecurityPolicyTranslator to use `secedit /export` via `win_shell`
+  - The `ansible.windows.win_security_policy` module does not exist in ansible.windows collection
+  - v0.2.2 generated broken code for all profiles with `security_policy` resources  
+  - New implementation exports policy with secedit, parses INI output, and validates with assertions
+  - Affects most CIS benchmark profiles (Windows Server, Windows 10/11)
+  - All generated tasks now use only existing Ansible modules (`win_shell`, `set_fact`, `assert`)
+
+### Technical Details
+- Export security policy: `secedit /export /cfg $env:TEMP\secpol.cfg /areas SECURITYPOLICY`
+- Parse INI format using Jinja2 regex filters to extract policy values
+- Validate with standard `ansible.builtin.assert` tasks
+- No external dependencies beyond ansible.windows collection
+
+---
+
 ## [0.2.2] - 2026-01-11
 
 ### Added
