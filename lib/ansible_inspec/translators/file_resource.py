@@ -86,10 +86,10 @@ class FileTranslator(ResourceTranslator):
         # Task 2: Build assertions
         assertions = []
         
-        for expectation in describe.get('expectations', []):
-            if expectation['type'] == 'it':
-                matcher = expectation['matcher']
-                negate = expectation.get('negate', False)
+        for test in describe.get('tests', []):
+            if test['type'] == 'it':
+                matcher = test['matcher']
+                negate = test.get('negated', False)
                 
                 # Map InSpec file matchers to stat properties
                 matcher_map = {
@@ -108,8 +108,8 @@ class FileTranslator(ResourceTranslator):
                     else:
                         assertions.append(property_path)
             
-            elif expectation['type'] == 'its':
-                property_name = expectation['property']
+            elif test['type'] == 'its':
+                property_name = test['property']
                 
                 # Map InSpec properties to stat properties
                 property_map = {
@@ -125,9 +125,9 @@ class FileTranslator(ResourceTranslator):
                 
                 assertion = self._convert_matcher_to_assertion(
                     property_path,
-                    expectation['matcher'],
-                    expectation['value'],
-                    expectation.get('negate', False)
+                    test['matcher'],
+                    test['value'],
+                    test.get('negated', False)
                 )
                 assertions.append(assertion)
         

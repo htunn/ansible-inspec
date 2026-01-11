@@ -32,13 +32,13 @@ class TestSecurityPolicyTranslator:
         translator = SecurityPolicyTranslator()
         describe = {
             'resource': 'security_policy',
-            'expectations': [
+            'tests': [
                 {
                     'type': 'its',
                     'property': 'MaximumPasswordAge',
                     'matcher': 'cmp',
                     'value': '365',
-                    'negate': False
+                    'negated': False
                 }
             ]
         }
@@ -62,10 +62,10 @@ class TestSecurityPolicyTranslator:
         translator = SecurityPolicyTranslator()
         describe = {
             'resource': 'security_policy',
-            'expectations': [
-                {'type': 'its', 'property': 'MaximumPasswordAge', 'matcher': 'cmp', 'value': '365', 'negate': False},
-                {'type': 'its', 'property': 'MinimumPasswordAge', 'matcher': 'be_>=', 'value': '1', 'negate': False},
-                {'type': 'its', 'property': 'MinimumPasswordLength', 'matcher': 'be_>=', 'value': '14', 'negate': False}
+            'tests': [
+                {'type': 'its', 'property': 'MaximumPasswordAge', 'matcher': 'cmp', 'value': '365', 'negated': False},
+                {'type': 'its', 'property': 'MinimumPasswordAge', 'matcher': 'be_>=', 'value': '1', 'negated': False},
+                {'type': 'its', 'property': 'MinimumPasswordLength', 'matcher': 'be_>=', 'value': '14', 'negated': False}
             ]
         }
         
@@ -97,8 +97,8 @@ class TestRegistryKeyTranslator:
         describe = {
             'resource': 'registry_key',
             'argument': 'HKLM\\Software\\Policies\\Microsoft\\Windows\\System',
-            'expectations': [
-                {'type': 'it', 'matcher': 'exist', 'negate': False}
+            'tests': [
+                {'type': 'it', 'matcher': 'exist', 'negated': False}
             ]
         }
         
@@ -121,9 +121,9 @@ class TestRegistryKeyTranslator:
         describe = {
             'resource': 'registry_key',
             'argument': 'HKLM\\Software\\Policies\\Microsoft\\Windows\\System',
-            'expectations': [
-                {'type': 'it', 'matcher': 'exist', 'negate': False},
-                {'type': 'its', 'property': 'EnableSmartScreen', 'matcher': 'eq', 'value': '1', 'negate': False}
+            'tests': [
+                {'type': 'it', 'matcher': 'exist', 'negated': False},
+                {'type': 'its', 'property': 'EnableSmartScreen', 'matcher': 'eq', 'value': '1', 'negated': False}
             ]
         }
         
@@ -158,13 +158,13 @@ class TestAuditPolicyTranslator:
         translator = AuditPolicyTranslator()
         describe = {
             'resource': 'audit_policy',
-            'expectations': [
+            'tests': [
                 {
                     'type': 'its',
                     'property': 'Credential Validation',
                     'matcher': 'eq',
                     'value': 'Success and Failure',
-                    'negate': False
+                    'negated': False
                 }
             ]
         }
@@ -197,9 +197,9 @@ class TestServiceTranslator:
         describe = {
             'resource': 'service',
             'argument': 'W32Time',
-            'expectations': [
-                {'type': 'it', 'matcher': 'be_installed', 'negate': False},
-                {'type': 'it', 'matcher': 'be_running', 'negate': False}
+            'tests': [
+                {'type': 'it', 'matcher': 'be_installed', 'negated': False},
+                {'type': 'it', 'matcher': 'be_running', 'negated': False}
             ]
         }
         
@@ -233,8 +233,8 @@ class TestWindowsFeatureTranslator:
         describe = {
             'resource': 'windows_feature',
             'argument': 'Telnet-Client',
-            'expectations': [
-                {'type': 'it', 'matcher': 'be_installed', 'negate': True}
+            'tests': [
+                {'type': 'it', 'matcher': 'be_installed', 'negated': True}
             ]
         }
         
@@ -267,8 +267,8 @@ class TestFileTranslator:
         describe = {
             'resource': 'file',
             'argument': 'C:/Windows/System32/drivers/etc/hosts',
-            'expectations': [
-                {'type': 'it', 'matcher': 'exist', 'negate': False}
+            'tests': [
+                {'type': 'it', 'matcher': 'exist', 'negated': False}
             ]
         }
         
@@ -320,8 +320,8 @@ class TestNoInSpecDependency:
         translator = SecurityPolicyTranslator()
         describe = {
             'resource': 'security_policy',
-            'expectations': [
-                {'type': 'its', 'property': 'MaximumPasswordAge', 'matcher': 'cmp', 'value': '365', 'negate': False}
+            'tests': [
+                {'type': 'its', 'property': 'MaximumPasswordAge', 'matcher': 'cmp', 'value': '365', 'negated': False}
             ]
         }
         
@@ -338,8 +338,8 @@ class TestNoInSpecDependency:
         describe = {
             'resource': 'registry_key',
             'argument': 'HKLM\\Software\\Test',
-            'expectations': [
-                {'type': 'it', 'matcher': 'exist', 'negate': False}
+            'tests': [
+                {'type': 'it', 'matcher': 'exist', 'negated': False}
             ]
         }
         
@@ -354,17 +354,17 @@ class TestNoInSpecDependency:
         test_cases = [
             ('security_policy', SecurityPolicyTranslator(), {
                 'resource': 'security_policy',
-                'expectations': [{'type': 'its', 'property': 'MaximumPasswordAge', 'matcher': 'cmp', 'value': '365', 'negate': False}]
+                'tests': [{'type': 'its', 'property': 'MaximumPasswordAge', 'matcher': 'cmp', 'value': '365', 'negated': False}]
             }),
             ('registry_key', RegistryKeyTranslator(), {
                 'resource': 'registry_key',
                 'argument': 'HKLM\\Software\\Test',
-                'expectations': [{'type': 'it', 'matcher': 'exist', 'negate': False}]
+                'tests': [{'type': 'it', 'matcher': 'exist', 'negated': False}]
             }),
             ('service', ServiceTranslator(), {
                 'resource': 'service',
                 'argument': 'TestService',
-                'expectations': [{'type': 'it', 'matcher': 'be_running', 'negate': False}]
+                'tests': [{'type': 'it', 'matcher': 'be_running', 'negated': False}]
             }),
         ]
         

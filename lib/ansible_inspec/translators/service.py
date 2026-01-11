@@ -77,10 +77,10 @@ class ServiceTranslator(ResourceTranslator):
         # Task 2: Build assertions
         assertions = []
         
-        for expectation in describe.get('expectations', []):
-            if expectation['type'] == 'it':
-                matcher = expectation['matcher']
-                negate = expectation.get('negate', False)
+        for test in describe.get('tests', []):
+            if test['type'] == 'it':
+                matcher = test['matcher']
+                negate = test.get('negated', False)
                 
                 # Map InSpec matchers to service states
                 if matcher == 'be_installed' or matcher == 'exist':
@@ -101,8 +101,8 @@ class ServiceTranslator(ResourceTranslator):
                     else:
                         assertions.append(f"{var_name}.services[0].start_mode in ['auto', 'automatic']")
             
-            elif expectation['type'] == 'its':
-                property_name = expectation['property']
+            elif test['type'] == 'its':
+                property_name = test['property']
                 
                 # Map property names
                 property_map = {
@@ -116,15 +116,15 @@ class ServiceTranslator(ResourceTranslator):
                 property_path = f"{var_name}.services[0].{ansible_property}"
                 
                 # Convert startmode values (InSpec uses 'Auto', Ansible uses 'auto')
-                value = expectation['value']
+                value = test['value']
                 if property_name.lower() in ['startmode', 'start_mode']:
                     value = value.lower()
                 
                 assertion = self._convert_matcher_to_assertion(
                     property_path,
-                    expectation['matcher'],
+                    test['matcher'],
                     value,
-                    expectation.get('negate', False)
+                    test.get('negated', False)
                 )
                 assertions.append(assertion)
         

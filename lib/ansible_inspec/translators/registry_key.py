@@ -79,11 +79,11 @@ class RegistryKeyTranslator(ResourceTranslator):
         # Task 2: Build assertions
         assertions = []
         
-        for expectation in describe.get('expectations', []):
-            if expectation['type'] == 'it':
+        for test in describe.get('tests', []):
+            if test['type'] == 'it':
                 # Handle 'it { should exist }' checks
-                matcher = expectation['matcher']
-                negate = expectation.get('negate', False)
+                matcher = test['matcher']
+                negate = test.get('negated', False)
                 
                 if matcher == 'exist':
                     if negate:
@@ -91,16 +91,16 @@ class RegistryKeyTranslator(ResourceTranslator):
                     else:
                         assertions.append(f"{var_name}.exists")
             
-            elif expectation['type'] == 'its':
+            elif test['type'] == 'its':
                 # Handle property checks: its('PropertyName') { should eq value }
-                property_name = expectation['property']
+                property_name = test['property']
                 property_path = f"{var_name}.properties.{property_name}"
                 
                 assertion = self._convert_matcher_to_assertion(
                     property_path,
-                    expectation['matcher'],
-                    expectation['value'],
-                    expectation.get('negate', False)
+                    test['matcher'],
+                    test['value'],
+                    test.get('negated', False)
                 )
                 assertions.append(assertion)
         

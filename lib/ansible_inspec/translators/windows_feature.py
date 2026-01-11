@@ -80,10 +80,10 @@ class WindowsFeatureTranslator(ResourceTranslator):
         # Task 2: Build assertions
         assertions = []
         
-        for expectation in describe.get('expectations', []):
-            if expectation['type'] == 'it':
-                matcher = expectation['matcher']
-                negate = expectation.get('negate', False)
+        for test in describe.get('tests', []):
+            if test['type'] == 'it':
+                matcher = test['matcher']
+                negate = test.get('negated', False)
                 
                 if matcher == 'be_installed':
                     # Check installation status

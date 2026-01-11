@@ -64,7 +64,7 @@ class SecurityPolicyTranslator(ResourceTranslator):
         
         Args:
             control_id: InSpec control ID
-            describe: Parsed describe block with expectations
+            describe: Parsed describe block with tests
         
         Returns:
             TranslationResult with Ansible tasks using win_security_policy
@@ -94,18 +94,18 @@ class SecurityPolicyTranslator(ResourceTranslator):
         }
         result.tasks.append(fetch_task)
         
-        # Task 2: Add assertions for each expectation
+        # Task 2: Add assertions for each test
         assertions = []
-        for expectation in describe.get('expectations', []):
-            if expectation['type'] == 'its':
-                property_name = expectation['property']
+        for test in describe.get('tests', []):
+            if test['type'] == 'its':
+                property_name = test['property']
                 property_path = f"{var_name}.{property_name}"
                 
                 assertion = self._convert_matcher_to_assertion(
                     property_path,
-                    expectation['matcher'],
-                    expectation['value'],
-                    expectation.get('negate', False)
+                    test['matcher'],
+                    test['value'],
+                    test.get('negated', False)
                 )
                 assertions.append(assertion)
         
@@ -126,9 +126,9 @@ class SecurityPolicyTranslator(ResourceTranslator):
         """Determine which security policy sections are needed"""
         sections = set()
         
-        for expectation in describe.get('expectations', []):
-            if expectation['type'] == 'its':
-                property_name = expectation['property']
+        for test in describe.get('tests', []):
+            if test['type'] == 'its':
+                property_name = test['property']
                 section = self.SECTION_MAP.get(property_name, 'System Access')
                 sections.add(section)
         

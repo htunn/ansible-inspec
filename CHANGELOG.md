@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.1] - 2026-01-11
+
+### Fixed
+
+**CRITICAL: Translators Not Being Used - Parser/Translator Field Mismatch**
+
+After deploying v0.2.0, users discovered that converted collections still contained `inspec exec` commands. Investigation revealed translators weren't being invoked due to field name mismatch between parser and translators.
+
+**Root Cause**:
+- InSpec parser generates describe blocks with `tests` field
+- Translators were expecting `expectations` field
+- Parser uses `negated` for negation flag
+- Translators were checking for `negate` flag
+- Result: Translators returned empty results, converter fell back to InSpec wrapper
+
+**Impact**:
+- 37% of tasks still used `inspec exec` (should be 0%)
+- InSpec still required on targets (defeats v0.2.0 purpose)
+- Native translation not functioning
+
+**Fix**:
+- Updated all 6 translators to use `tests` instead of `expectations`
+- Updated all translators to use `negated` instead of `negate`
+- Updated test suite to match parser output format
+- Verified 22/22 tests still passing
+
+**Files Modified**:
+- `lib/ansible_inspec/translators/security_policy.py`
+- `lib/ansible_inspec/translators/registry_key.py`
+- `lib/ansible_inspec/translators/audit_policy.py`
+- `lib/ansible_inspec/translators/service.py`
+- `lib/ansible_inspec/translators/windows_feature.py`
+- `lib/ansible_inspec/translators/file_resource.py`
+- `tests/test_translators.py`
+
+**Verification**:
+Users should reconvert profiles and verify:
+```bash
+# Should return 0 (no InSpec exec commands)
+grep -c "inspec exec" converted_collection/tasks/main.yml
+```
+
+**Recommendation**: 
+All users who converted profiles with v0.2.0 should upgrade to v0.2.1 and reconvert to ensure native translation is used.
+
+---
+
 ## [0.2.0] - 2026-01-11
 
 ### ⚠️ BREAKING CHANGE: MAJOR ARCHITECTURAL REDESIGN

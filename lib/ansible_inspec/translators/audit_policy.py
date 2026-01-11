@@ -53,13 +53,13 @@ class AuditPolicyTranslator(ResourceTranslator):
         base_var = self._sanitize_variable_name(f"{control_id}_audit")
         
         # Generate tasks for each audit policy check
-        for idx, expectation in enumerate(describe.get('expectations', [])):
-            if expectation['type'] != 'its':
+        for idx, test in enumerate(describe.get('tests', [])):
+            if test['type'] != 'its':
                 continue
             
-            subcategory = expectation['property']
-            expected_value = expectation['value']
-            negate = expectation.get('negate', False)
+            subcategory = test['property']
+            expected_value = test['value']
+            negate = test.get('negated', False)
             var_name = f"{base_var}_{idx}"
             
             # Task 1: Query audit policy for this subcategory
