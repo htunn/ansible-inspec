@@ -9,6 +9,7 @@ Licensed under GPL-3.0
 """
 
 from typing import Dict, Any
+import re
 from .base import ResourceTranslator, TranslationResult
 
 
@@ -79,13 +80,21 @@ class AuditPolicyTranslator(ResourceTranslator):
             else:
                 assertion = f"'{expected_value}' in {var_name}.stdout"
             
+            # Generate a valid register variable name from control_id
+            register_name = re.sub(r'[^a-zA-Z0-9_]', '_', control_id)
+            register_name = re.sub(r'_+', '_', register_name).strip('_')
+            if register_name and register_name[0].isdigit():
+                register_name = 'control_' + register_name
+            
             assert_task = {
                 'name': f"Validate {subcategory} audit policy",
+                'ignore_errors': True,
                 'ansible.builtin.assert': {
                     'that': [assertion],
                     'fail_msg': f"Audit policy for {subcategory} should{' not' if negate else ''} be '{expected_value}'",
                     'success_msg': f"Audit policy for {subcategory} is correct"
-                }
+                },
+                'register': f"{register_name}_result"
             }
             result.tasks.append(assert_task)
         

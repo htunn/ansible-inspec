@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.4] - 2026-01-11
+
+### Fixed
+- **CRITICAL**: Added missing error handling and result tracking to assertion tasks
+  - All `ansible.builtin.assert` tasks now include `ignore_errors: True`
+  - All assertion tasks now register results with `register: <control_id>_result`
+  - Playbooks no longer abort on first failed compliance check
+  - Compliance reports now capture all control results (previously empty)
+  - Affects all translator files: registry_key, security_policy, audit_policy, windows_feature, service, file_resource
+  - Also updated converter.py for file, service, package, and command checks
+  - Enables comprehensive compliance reporting across 200+ control profiles
+
+### Technical Details
+- Added `import re` to all translator modules for variable name sanitization
+- Register variable names are sanitized from control IDs (special chars → underscores)
+- Uses existing `sanitize_variable_name()` function in converter.py
+- All assertion tasks continue execution on failure, allowing full compliance scans
+- Results can now be collected by callback plugins and reporting mechanisms
+
+---
+
 ## [0.2.3] - 2025-01-14
 
 ### Fixed

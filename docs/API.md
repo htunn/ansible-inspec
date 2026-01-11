@@ -2,7 +2,9 @@
 
 Complete API reference for ansible-inspec library and CLI.
 
-**Latest Update (v0.2.2):** Added dynamic custom resource mapper that automatically translates custom InSpec resources to native Ansible modules. Also fixed InSpec parser value extraction to properly handle operators in assertions.
+**Latest Update (v0.2.4):** Added missing error handling and result tracking to assertion tasks. All assert tasks now include `ignore_errors: True` and `register` fields, enabling full compliance scans without early abortion and proper result collection for reporting.
+
+**v0.2.2:** Added dynamic custom resource mapper that automatically translates custom InSpec resources to native Ansible modules. Also fixed InSpec parser value extraction to properly handle operators in assertions.
 
 **v0.2.1:** Fixed critical translator field mismatch that prevented native translation.
 

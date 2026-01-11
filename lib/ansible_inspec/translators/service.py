@@ -129,13 +129,21 @@ class ServiceTranslator(ResourceTranslator):
                 assertions.append(assertion)
         
         if assertions:
+            # Generate a valid register variable name from control_id
+            register_name = re.sub(r'[^a-zA-Z0-9_]', '_', control_id)
+            register_name = re.sub(r'_+', '_', register_name).strip('_')
+            if register_name and register_name[0].isdigit():
+                register_name = 'control_' + register_name
+            
             assert_task = {
                 'name': f"Validate service {service_name}",
+                'ignore_errors': True,
                 'ansible.builtin.assert': {
                     'that': assertions,
                     'fail_msg': f"Service check failed for {service_name}",
                     'success_msg': f"Service check passed for {service_name}"
-                }
+                },
+                'register': f"{register_name}_result"
             }
             result.tasks.append(assert_task)
         

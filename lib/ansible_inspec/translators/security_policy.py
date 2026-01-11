@@ -155,13 +155,21 @@ class SecurityPolicyTranslator(ResourceTranslator):
                 assertions.append(assertion)
         
         if assertions:
+            # Generate a valid register variable name from control_id
+            register_name = re.sub(r'[^a-zA-Z0-9_]', '_', control_id)
+            register_name = re.sub(r'_+', '_', register_name).strip('_')
+            if register_name and register_name[0].isdigit():
+                register_name = 'control_' + register_name
+            
             assert_task = {
                 'name': f"Validate security policy for control {control_id}",
+                'ignore_errors': True,
                 'ansible.builtin.assert': {
                     'that': assertions,
                     'fail_msg': f"Security policy check failed for control {control_id}",
                     'success_msg': f"Security policy check passed for control {control_id}"
-                }
+                },
+                'register': f"{register_name}_result"
             }
             result.tasks.append(assert_task)
         

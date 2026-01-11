@@ -466,12 +466,17 @@ class AnsibleTaskGenerator:
                     assertions.append(f"{var_name}.stat.pw_name == '{value}'")
         
         if assertions:
+            # Generate register variable name from control_id
+            register_name = sanitize_variable_name(control['id'])
+            
             tasks.append({
                 'name': f"Verify {path} compliance",
+                'ignore_errors': True,
                 'ansible.builtin.assert': {
                     'that': assertions,
                     'fail_msg': f"Compliance check failed for {path}"
-                }
+                },
+                'register': f"{register_name}_result"
             })
         
         return tasks
@@ -502,12 +507,17 @@ class AnsibleTaskGenerator:
                     )
         
         if assertions:
+            # Generate register variable name from control_id
+            register_name = sanitize_variable_name(control['id'])
+            
             tasks.append({
                 'name': f"Verify {service_name} service",
+                'ignore_errors': True,
                 'ansible.builtin.assert': {
                     'that': assertions,
                     'fail_msg': f"Service {service_name} is not compliant"
-                }
+                },
+                'register': f"{register_name}_result"
             })
         
         return tasks
@@ -527,12 +537,17 @@ class AnsibleTaskGenerator:
                 )
         
         if assertions:
+            # Generate register variable name from control_id
+            register_name = sanitize_variable_name(control['id'])
+            
             tasks.append({
                 'name': f"Verify {package_name} package",
+                'ignore_errors': True,
                 'ansible.builtin.assert': {
                     'that': assertions,
                     'fail_msg': f"Package {package_name} compliance check failed"
-                }
+                },
+                'register': f"{register_name}_result"
             })
         
         return tasks
@@ -590,9 +605,16 @@ class AnsibleTaskGenerator:
                         assertions.append(f"command_result.stdout == '{value}'")
         
         if assertions:
+            # Generate register variable name from control_id
+            register_name = sanitize_variable_name(control['id'])
+            
             tasks.append({
                 'name': "Verify command output",
-                'ansible.builtin.assert': {'that': assertions}
+                'ignore_errors': True,
+                'ansible.builtin.assert': {
+                    'that': assertions
+                },
+                'register': f"{register_name}_result"
             })
         
         return tasks
