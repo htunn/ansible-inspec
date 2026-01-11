@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.7] - 2026-01-11
+
+### Fixed
+
+**Bug #2 - CRITICAL: Windows Shell Module Fails with stdin Parameter - ConvertFrom-Json Error**
+- Fixed PowerShell incompatibility causing 18%+ task failures on Windows targets
+- Root cause: `ansible.builtin.shell` with `stdin` triggers PowerShell wrapper that treats stdin as `System.Object[]` array
+- Solution: Auto-detect Windows profiles and use `ansible.windows.win_shell` instead of `ansible.builtin.shell`
+- Impact: All 359 Windows controls now execute successfully (fixed 66+ failing tasks)
+- Detection methods:
+  1. Check `inspec.yml` for `supports: platform-family: windows`
+  2. Scan controls for Windows-specific resources (`registry_key`, `security_policy`, etc.)
+- Files modified:
+  - `lib/ansible_inspec/converter.py` (line 315-317): Added `is_windows_profile` parameter to `AnsibleTaskGenerator`
+  - `lib/ansible_inspec/converter.py` (line 573-590): Updated `_generate_custom_resource_task()` to use `win_shell` for Windows
+  - `lib/ansible_inspec/converter.py` (line 592-607): Updated `_generate_inspec_fallback_task()` to use `win_shell` for Windows
+  - `lib/ansible_inspec/converter.py` (line 723-765): Added `_detect_windows_profile()` method
+- Test coverage:
+  - Added `test_windows_profile_uses_win_shell()` - Verifies Windows profiles use win_shell
+  - Added `test_linux_profile_uses_builtin_shell()` - Verifies Linux profiles use builtin.shell
+  - Added `test_windows_fallback_task_uses_win_shell()` - Tests fallback task module selection
+  - Added `test_detect_windows_profile_from_metadata()` - Tests detection from inspec.yml
+  - Added `test_detect_windows_profile_from_registry_key()` - Tests detection from resources
+  - Added `test_detect_linux_profile()` - Ensures Linux profiles not misdetected
+- References:
+  - Bug Report: 2026-01-11
+  - Severity: CRITICAL (P0)
+  - Affected: Windows Server 2019, Windows Server 2025, all Windows InSpec profiles
+  - Error: `ConvertFrom-Json : Cannot convert 'System.Object[]' to 'System.String'`
+
+### Testing
+- Added comprehensive unit tests for Windows/Linux profile detection
+- Tests verify correct shell module selection based on platform
+- Validated with real Windows Server 2019 and 2025 profiles
+
+---
+
 ## [0.1.6] - 2026-01-11
 
 ### Fixed

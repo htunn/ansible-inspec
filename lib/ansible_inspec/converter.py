@@ -314,8 +314,9 @@ class AnsibleTaskGenerator:
         'kernel_parameter': 'ansible.posix.sysctl',
     }
     
-    def __init__(self, custom_resources: Optional[Dict] = None):
+    def __init__(self, custom_resources: Optional[Dict] = None, is_windows_profile: bool = False):
         self.custom_resources = custom_resources or {}
+        self.is_windows_profile = is_windows_profile
     
     def generate_tasks(self, controls: List[Dict[str, Any]], use_native: bool = True) -> List[Dict[str, Any]]:
         """Generate Ansible tasks from parsed controls"""
@@ -573,9 +574,12 @@ class AnsibleTaskGenerator:
         resource_name = describe['resource']
         var_name = sanitize_variable_name(control['id'])
         
+        # Use Windows-specific module for Windows profiles to avoid PowerShell stdin issues
+        shell_module = 'ansible.windows.win_shell' if self.is_windows_profile else 'ansible.builtin.shell'
+        
         return {
             'name': f"Execute custom resource check: {resource_name}",
-            'ansible.builtin.shell': {
+            shell_module: {
                 'cmd': f"inspec exec - -t local:// --controls {control['id']}",
                 'stdin': self._generate_custom_resource_control(control, describe)
             },
@@ -590,9 +594,12 @@ class AnsibleTaskGenerator:
         """Generate InSpec wrapper task for unsupported resources"""
         var_name = sanitize_variable_name(control['id'])
         
+        # Use Windows-specific module for Windows profiles to avoid PowerShell stdin issues
+        shell_module = 'ansible.windows.win_shell' if self.is_windows_profile else 'ansible.builtin.shell'
+        
         return {
             'name': f"Execute InSpec check for {describe['resource']}",
-            'ansible.builtin.shell': {
+            shell_module: {
                 'cmd': f"inspec exec - -t local:// --controls {control['id']}",
                 'stdin': self._generate_control_snippet(control, describe)
             },
@@ -681,8 +688,11 @@ class ProfileConverter:
                     f"Found {len(custom_resources)} custom resource(s) - using InSpec wrapper"
                 )
             
+            # Detect Windows profile
+            is_windows = self._detect_windows_profile()
+            
             # Initialize task generator
-            self.task_generator = AnsibleTaskGenerator(custom_resources)
+            self.task_generator = AnsibleTaskGenerator(custom_resources, is_windows_profile=is_windows)
             
             # Create collection structure
             collection_path = self._create_collection_structure()
@@ -728,6 +738,40 @@ class ProfileConverter:
         controls_dir = os.path.join(self.config.source_profile, 'controls')
         
         return os.path.exists(inspec_yml) or os.path.exists(controls_dir)
+    
+    def _detect_windows_profile(self) -> bool:
+        """Detect if this is a Windows InSpec profile"""
+        # Check inspec.yml for platform support
+        inspec_yml = os.path.join(self.config.source_profile, 'inspec.yml')
+        if os.path.exists(inspec_yml):
+            with open(inspec_yml, 'r') as f:
+                try:
+                    metadata = yaml.safe_load(f)
+                    if metadata and 'supports' in metadata:
+                        supports = metadata['supports']
+                        if isinstance(supports, list):
+                            for platform in supports:
+                                if isinstance(platform, dict) and 'platform-family' in platform:
+                                    if platform['platform-family'] == 'windows':
+                                        return True
+                                elif isinstance(platform, dict) and 'os-family' in platform:
+                                    if platform['os-family'] == 'windows':
+                                        return True
+                except yaml.YAMLError:
+                    pass
+        
+        # Check for Windows-specific resources in controls
+        controls_dir = os.path.join(self.config.source_profile, 'controls')
+        if os.path.exists(controls_dir):
+            windows_resources = {'registry_key', 'security_policy', 'windows_feature', 'iis_app_pool'}
+            for control_file in Path(controls_dir).glob('*.rb'):
+                with open(control_file, 'r') as f:
+                    content = f.read()
+                    for resource in windows_resources:
+                        if f'describe {resource}' in content:
+                            return True
+        
+        return False
     
     def _create_collection_structure(self) -> str:
         """Create Ansible collection directory structure"""

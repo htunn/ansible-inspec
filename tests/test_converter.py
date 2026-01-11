@@ -365,6 +365,103 @@ class TestAnsibleTaskGenerator:
         assert len(tasks) >= 1
         assert isinstance(tasks, list)
     
+    def test_windows_profile_uses_win_shell(self):
+        """Test that Windows profiles use ansible.windows.win_shell module (Bug #2 fix)."""
+        custom_resources = {'custom_resource': {'name': 'custom_resource'}}
+        generator = AnsibleTaskGenerator(custom_resources, is_windows_profile=True)
+        
+        control = {
+            'id': 'test-windows-1',
+            'title': 'Windows Test',
+            'describes': [{
+                'resource': 'custom_resource',
+                'argument': '/test/path',
+                'tests': [
+                    {'type': 'it', 'matcher': 'exist', 'negated': False},
+                ]
+            }]
+        }
+        
+        tasks = generator.generate_tasks([control], use_native=False)
+        
+        assert len(tasks) >= 1
+        task_block = tasks[0]
+        assert 'block' in task_block
+        
+        # Check the actual task uses win_shell
+        actual_task = task_block['block'][0]
+        assert 'ansible.windows.win_shell' in actual_task
+        assert 'ansible.builtin.shell' not in actual_task
+    
+    def test_linux_profile_uses_builtin_shell(self):
+        """Test that Linux profiles use ansible.builtin.shell module."""
+        custom_resources = {'custom_resource': {'name': 'custom_resource'}}
+        generator = AnsibleTaskGenerator(custom_resources, is_windows_profile=False)
+        
+        control = {
+            'id': 'test-linux-1',
+            'title': 'Linux Test',
+            'describes': [{
+                'resource': 'custom_resource',
+                'argument': '/test/path',
+                'tests': [
+                    {'type': 'it', 'matcher': 'exist', 'negated': False},
+                ]
+            }]
+        }
+        
+        tasks = generator.generate_tasks([control], use_native=False)
+        
+        assert len(tasks) >= 1
+        task_block = tasks[0]
+        assert 'block' in task_block
+        
+        # Check the actual task uses builtin.shell
+        actual_task = task_block['block'][0]
+        assert 'ansible.builtin.shell' in actual_task
+        assert 'ansible.windows.win_shell' not in actual_task
+    
+    def test_windows_fallback_task_uses_win_shell(self):
+        """Test that Windows fallback tasks use win_shell for unsupported resources."""
+        generator = AnsibleTaskGenerator({}, is_windows_profile=True)
+        
+        control = {
+            'id': 'test-fallback-1',
+            'title': 'Fallback Test',
+            'describes': [{
+                'resource': 'unsupported_resource',
+                'argument': 'test',
+                'tests': [
+                    {'type': 'it', 'matcher': 'exist', 'negated': False},
+                ]
+            }]
+        }
+        
+        tasks = generator.generate_tasks([control], use_native=False)
+        
+        assert len(tasks) >= 1
+        task_block = tasks[0]
+        actual_task = task_block['block'][0]
+        
+        # Verify win_shell is used for Windows
+        assert 'ansible.windows.win_shell' in actual_task
+        control = {
+            'id': 'test-1',
+            'title': 'Test',
+            'describes': [{
+                'resource': 'custom_resource',
+                'argument': '/some/path',
+                'tests': [
+                    {'type': 'it', 'matcher': 'exist', 'negated': False},
+                ]
+            }]
+        }
+        
+        tasks = generator.generate_tasks([control], use_native=False)
+        
+        assert len(tasks) >= 1
+        assert isinstance(tasks, list)
+    
     def test_sanitize_variable_names_in_tasks(self):
         """Test that variable names are sanitized in generated tasks."""
         generator = AnsibleTaskGenerator({})
@@ -413,6 +510,98 @@ class TestAnsibleTaskGenerator:
 
 class TestProfileConverter:
     """Test ProfileConverter functionality."""
+    
+    def test_detect_windows_profile_from_metadata(self, temp_output_dir):
+        """Test Windows profile detection from inspec.yml metadata."""
+        temp_dir = tempfile.mkdtemp()
+        profile_dir = Path(temp_dir) / "windows-profile"
+        profile_dir.mkdir()
+        
+        # Create Windows inspec.yml
+        (profile_dir / "inspec.yml").write_text("""
+name: windows-profile
+title: Windows Profile
+version: 1.0.0
+supports:
+  - platform-family: windows
+    """)
+        
+        # Create controls directory
+        controls_dir = profile_dir / "controls"
+        controls_dir.mkdir()
+        (controls_dir / "test.rb").write_text("""
+control 'test-1' do
+  describe file('C:\\test') do
+    it { should exist }
+  end
+end
+        """)
+        
+        config = ConversionConfig(
+            source_profile=str(profile_dir),
+            output_dir=str(temp_output_dir),
+            namespace='test',
+            collection_name='windows_test',
+        )
+        
+        converter = ProfileConverter(config)
+        is_windows = converter._detect_windows_profile()
+        
+        assert is_windows is True
+        
+        shutil.rmtree(temp_dir)
+    
+    def test_detect_windows_profile_from_registry_key(self, temp_output_dir):
+        """Test Windows profile detection from registry_key resource usage."""
+        temp_dir = tempfile.mkdtemp()
+        profile_dir = Path(temp_dir) / "windows-profile"
+        profile_dir.mkdir()
+        
+        # Create inspec.yml without platform
+        (profile_dir / "inspec.yml").write_text("""
+name: windows-profile
+title: Windows Profile
+version: 1.0.0
+        """)
+        
+        # Create controls with Windows-specific resource
+        controls_dir = profile_dir / "controls"
+        controls_dir.mkdir()
+        (controls_dir / "test.rb").write_text("""
+control 'test-1' do
+  describe registry_key('HKEY_LOCAL_MACHINE\\\\System') do
+    it { should exist }
+  end
+end
+        """)
+        
+        config = ConversionConfig(
+            source_profile=str(profile_dir),
+            output_dir=str(temp_output_dir),
+            namespace='test',
+            collection_name='windows_test',
+        )
+        
+        converter = ProfileConverter(config)
+        is_windows = converter._detect_windows_profile()
+        
+        assert is_windows is True
+        
+        shutil.rmtree(temp_dir)
+    
+    def test_detect_linux_profile(self, temp_profile_dir, temp_output_dir):
+        """Test that Linux profiles are not detected as Windows."""
+        config = ConversionConfig(
+            source_profile=str(temp_profile_dir),
+            output_dir=str(temp_output_dir),
+            namespace='test',
+            collection_name='linux_test',
+        )
+        
+        converter = ProfileConverter(config)
+        is_windows = converter._detect_windows_profile()
+        
+        assert is_windows is False
     
     def test_convert_simple_profile(self, temp_profile_dir, temp_output_dir):
         """Test converting a simple InSpec profile."""
