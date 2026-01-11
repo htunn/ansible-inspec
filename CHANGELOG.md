@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.8] - 2026-01-11
+
+### Fixed
+
+**Bug #3 - CRITICAL: Incorrect win_shell Module Syntax - Missing _raw_params**
+- Fixed incorrect module syntax causing 100% task failure on Windows targets
+- Root cause: Used structured `cmd:` syntax with `ansible.windows.win_shell`, but module requires free-form syntax
+- Error: `Get-AnsibleParam: Missing required argument: _raw_params`
+- Impact: Complete blocker - first task failed immediately, no compliance checks executed
+- Solution: Use free-form command syntax with parameters in `args` block for Windows
+- Syntax differences:
+  - **Windows (fixed)**: `ansible.windows.win_shell: <command>` with `args: {stdin: ...}`
+  - **Linux (unchanged)**: `ansible.builtin.shell: {cmd: <command>, stdin: ...}` (both syntaxes work)
+- Files modified:
+  - `lib/ansible_inspec/converter.py` (line 573-608): Updated `_generate_custom_resource_task()` with platform-specific syntax
+  - `lib/ansible_inspec/converter.py` (line 610-638): Updated `_generate_inspec_fallback_task()` with platform-specific syntax
+- Test coverage:
+  - Added `test_windows_module_uses_freeform_syntax()` - Verifies free-form syntax for Windows
+  - Added `test_linux_module_uses_structured_syntax()` - Verifies structured syntax for Linux
+  - Validates YAML structure, not just module names
+- References:
+  - Bug Report: 2026-01-11
+  - Severity: CRITICAL (P0)
+  - Affected: ALL Windows InSpec profiles (100% failure rate before fix)
+  - ansible.windows.win_shell documentation: Free-form command required
+
+### Testing
+- Added YAML structure validation tests
+- Verified correct syntax generation for both Windows and Linux profiles
+- Tests validate actual task structure, not just module selection
+
+---
+
 ## [0.1.7] - 2026-01-11
 
 ### Fixed

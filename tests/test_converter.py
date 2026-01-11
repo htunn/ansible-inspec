@@ -445,12 +445,79 @@ class TestAnsibleTaskGenerator:
         
         # Verify win_shell is used for Windows
         assert 'ansible.windows.win_shell' in actual_task
+    
+    def test_windows_module_uses_freeform_syntax(self):
+        """Test that Windows tasks use free-form syntax (Bug #3 fix)."""
+        generator = AnsibleTaskGenerator({}, is_windows_profile=True)
+        
         control = {
-            'id': 'test-1',
-            'title': 'Test',
+            'id': 'test-syntax-1',
+            'title': 'Syntax Test',
             'describes': [{
-                'resource': 'custom_resource',
-                'argument': '/some/path',
+                'resource': 'unsupported_resource',
+                'argument': 'test',
+                'tests': [
+                    {'type': 'it', 'matcher': 'exist', 'negated': False},
+                ]
+            }]
+        }
+        
+        tasks = generator.generate_tasks([control], use_native=False)
+        
+        assert len(tasks) >= 1
+        task_block = tasks[0]
+        actual_task = task_block['block'][0]
+        
+        # Verify win_shell uses free-form syntax (string value, not dict)
+        assert 'ansible.windows.win_shell' in actual_task
+        win_shell_value = actual_task['ansible.windows.win_shell']
+        assert isinstance(win_shell_value, str), "win_shell must use free-form syntax (string)"
+        assert win_shell_value.startswith('inspec exec'), "Command should start with inspec exec"
+        
+        # Verify stdin is in args block, not in module parameter
+        assert 'args' in actual_task, "Windows module parameters must be in 'args' block"
+        assert 'stdin' in actual_task['args'], "stdin must be in 'args' block for Windows"
+    
+    def test_linux_module_uses_structured_syntax(self):
+        """Test that Linux tasks use structured syntax with cmd parameter."""
+        generator = AnsibleTaskGenerator({}, is_windows_profile=False)
+        
+        control = {
+            'id': 'test-linux-syntax-1',
+            'title': 'Linux Syntax Test',
+            'describes': [{
+                'resource': 'unsupported_resource',
+                'argument': 'test',
+                'tests': [
+                    {'type': 'it', 'matcher': 'exist', 'negated': False},
+                ]
+            }]
+        }
+        
+        tasks = generator.generate_tasks([control], use_native=False)
+        
+        assert len(tasks) >= 1
+        task_block = tasks[0]
+        actual_task = task_block['block'][0]
+        
+        # Verify builtin.shell uses structured syntax (dict with cmd/stdin)
+        assert 'ansible.builtin.shell' in actual_task
+        shell_value = actual_task['ansible.builtin.shell']
+        assert isinstance(shell_value, dict), "Linux shell can use structured syntax (dict)"
+        assert 'cmd' in shell_value, "Structured syntax should have 'cmd' key"
+        assert 'stdin' in shell_value, "Structured syntax should have 'stdin' key"
+    
+    def test_sanitize_variable_names_in_tasks(self):
+        """Test that variable names are sanitized in generated tasks."""
+        generator = AnsibleTaskGenerator({})
+        
+        # Control with special characters in ID (like from CIS benchmarks)
+        control = {
+            'id': '2.2.27 (L1) Ensure Enable computer',
+            'title': 'Test Control',
+            'describes': [{
+                'resource': 'unknown_resource',  # Force fallback
+                'argument': 'test',
                 'tests': [
                     {'type': 'it', 'matcher': 'exist', 'negated': False},
                 ]

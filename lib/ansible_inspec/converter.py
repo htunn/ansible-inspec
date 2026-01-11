@@ -573,39 +573,68 @@ class AnsibleTaskGenerator:
         """Generate task for custom InSpec resource using InSpec wrapper"""
         resource_name = describe['resource']
         var_name = sanitize_variable_name(control['id'])
+        cmd = f"inspec exec - -t local:// --controls {control['id']}"
+        stdin_content = self._generate_custom_resource_control(control, describe)
         
-        # Use Windows-specific module for Windows profiles to avoid PowerShell stdin issues
-        shell_module = 'ansible.windows.win_shell' if self.is_windows_profile else 'ansible.builtin.shell'
-        
-        return {
-            'name': f"Execute custom resource check: {resource_name}",
-            shell_module: {
-                'cmd': f"inspec exec - -t local:// --controls {control['id']}",
-                'stdin': self._generate_custom_resource_control(control, describe)
-            },
-            'register': f"{var_name}_result",
-            'failed_when': f"{var_name}_result.rc != 0",
-            'environment': {
-                'INSPEC_LOAD_PATH': '{{ role_path }}/files/libraries'
+        # Windows module requires free-form syntax, Linux accepts both
+        if self.is_windows_profile:
+            task = {
+                'name': f"Execute custom resource check: {resource_name}",
+                'ansible.windows.win_shell': cmd,  # Free-form command
+                'args': {
+                    'stdin': stdin_content
+                },
+                'register': f"{var_name}_result",
+                'failed_when': f"{var_name}_result.rc != 0",
+                'environment': {
+                    'INSPEC_LOAD_PATH': '{{ role_path }}/files/libraries'
+                }
             }
-        }
+        else:
+            task = {
+                'name': f"Execute custom resource check: {resource_name}",
+                'ansible.builtin.shell': {
+                    'cmd': cmd,
+                    'stdin': stdin_content
+                },
+                'register': f"{var_name}_result",
+                'failed_when': f"{var_name}_result.rc != 0",
+                'environment': {
+                    'INSPEC_LOAD_PATH': '{{ role_path }}/files/libraries'
+                }
+            }
+        
+        return task
     
     def _generate_inspec_fallback_task(self, control: Dict, describe: Dict) -> Dict[str, Any]:
         """Generate InSpec wrapper task for unsupported resources"""
         var_name = sanitize_variable_name(control['id'])
+        cmd = f"inspec exec - -t local:// --controls {control['id']}"
+        stdin_content = self._generate_control_snippet(control, describe)
         
-        # Use Windows-specific module for Windows profiles to avoid PowerShell stdin issues
-        shell_module = 'ansible.windows.win_shell' if self.is_windows_profile else 'ansible.builtin.shell'
+        # Windows module requires free-form syntax, Linux accepts both
+        if self.is_windows_profile:
+            task = {
+                'name': f"Execute InSpec check for {describe['resource']}",
+                'ansible.windows.win_shell': cmd,  # Free-form command
+                'args': {
+                    'stdin': stdin_content
+                },
+                'register': f"{var_name}_result",
+                'failed_when': f"{var_name}_result.rc != 0"
+            }
+        else:
+            task = {
+                'name': f"Execute InSpec check for {describe['resource']}",
+                'ansible.builtin.shell': {
+                    'cmd': cmd,
+                    'stdin': stdin_content
+                },
+                'register': f"{var_name}_result",
+                'failed_when': f"{var_name}_result.rc != 0"
+            }
         
-        return {
-            'name': f"Execute InSpec check for {describe['resource']}",
-            shell_module: {
-                'cmd': f"inspec exec - -t local:// --controls {control['id']}",
-                'stdin': self._generate_control_snippet(control, describe)
-            },
-            'register': f"{var_name}_result",
-            'failed_when': f"{var_name}_result.rc != 0"
-        }
+        return task
     
     def _generate_custom_resource_control(self, control: Dict, describe: Dict) -> str:
         """Generate InSpec control content for custom resource"""
