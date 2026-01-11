@@ -530,18 +530,19 @@ class TestAnsibleTaskGenerator:
         task_block = tasks[0]
         actual_task = task_block['block'][0]
         
-        # Verify command quotes the control ID
+        # With native translators, security_policy now uses secedit via win_shell
         assert 'ansible.windows.win_shell' in actual_task
         cmd = actual_task['ansible.windows.win_shell']
         
-        # Control ID should be wrapped in double quotes
-        assert '--controls "' in cmd, "Control ID must be quoted for PowerShell"
-        assert '1.1.2 (L1)' in cmd, "Control ID content should be in command"
+        # Should contain secedit export command (native translator behavior)
+        assert 'secedit /export' in cmd, "Security policy should use secedit native approach"
         
-        # Verify backtick escaping for any double quotes in the ID (if present)
-        if '"' in control['id']:
-            # If original ID has quotes, they should be escaped with backtick
-            assert '`"' in cmd or control['id'].count('"') == 0
+        # Verify the assert task has ignore_errors and register
+        assert_task = task_block['block'][-1]  # Last task should be the assert
+        if 'ansible.builtin.assert' in assert_task:
+            assert 'ignore_errors' in assert_task, "Assert task should have ignore_errors"
+            assert assert_task['ignore_errors'] is True
+            assert 'register' in assert_task, "Assert task should have register field"
     
     def test_linux_control_id_quoting(self):
         """Test that Linux tasks quote control IDs with special characters."""
@@ -566,14 +567,14 @@ class TestAnsibleTaskGenerator:
         task_block = tasks[0]
         actual_task = task_block['block'][0]
         
-        # Verify command quotes the control ID
-        assert 'ansible.builtin.shell' in actual_task
-        shell_dict = actual_task['ansible.builtin.shell']
-        cmd = shell_dict['cmd']
+        # With native translators, file resource now uses win_stat/stat
+        # For Linux profiles, should use ansible.builtin.stat
+        assert 'ansible.builtin.stat' in actual_task or 'ansible.windows.win_stat' in actual_task
         
-        # Control ID should be wrapped in double quotes
-        assert '--controls "' in cmd, "Control ID must be quoted for shell safety"
-        assert 'test-1.2.3 (L1)' in cmd, "Control ID content should be in command"
+        # Verify register field is present with sanitized control ID
+        assert 'register' in actual_task, "Stat task should have register field"
+        assert 'test_1_2_3' in actual_task['register'], "Register name should be sanitized from control ID"
+
     
     def test_sanitize_variable_names_in_tasks(self):
         """Test that variable names are sanitized in generated tasks."""

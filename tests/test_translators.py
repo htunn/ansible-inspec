@@ -45,17 +45,23 @@ class TestSecurityPolicyTranslator:
         
         result = translator.translate('test_control', describe)
         
-        # Should generate native Ansible tasks
-        assert len(result.tasks) == 2
+        # Should generate native Ansible tasks (export + parse + assert)
+        assert len(result.tasks) == 3
         assert not result.requires_inspec  # ✅ NO InSpec required!
         
-        # First task: Get security policy
-        assert 'ansible.windows.win_security_policy' in result.tasks[0]
-        assert result.tasks[0]['ansible.windows.win_security_policy']['section'] == 'System Access'
+        # First task: Export security policy with secedit
+        assert 'ansible.windows.win_shell' in result.tasks[0]
+        assert 'secedit /export' in result.tasks[0]['ansible.windows.win_shell']
         
-        # Second task: Assert values
-        assert 'ansible.builtin.assert' in result.tasks[1]
-        assert 'test_control_security_policy.MaximumPasswordAge == 365' in result.tasks[1]['ansible.builtin.assert']['that']
+        # Second task: Parse value
+        assert 'ansible.builtin.set_fact' in result.tasks[1]
+        
+        # Third task: Assert values with ignore_errors and register
+        assert 'ansible.builtin.assert' in result.tasks[2]
+        assert 'ignore_errors' in result.tasks[2]
+        assert result.tasks[2]['ignore_errors'] is True
+        assert 'register' in result.tasks[2]
+        assert result.tasks[2]['register'] == 'test_control_result'
     
     def test_translate_multiple_password_policies(self):
         """Verify multiple password policy checks"""
@@ -72,10 +78,14 @@ class TestSecurityPolicyTranslator:
         result = translator.translate('test_control', describe)
         
         assert not result.requires_inspec
-        assert len(result.tasks) == 2
+        assert len(result.tasks) == 5  # export + 3 parse tasks + assert
         
-        # Check assertions for all three properties
-        assertions = result.tasks[1]['ansible.builtin.assert']['that']
+        # Check last task has assertions for all three properties and includes ignore_errors/register
+        assert 'ansible.builtin.assert' in result.tasks[4]
+        assert 'ignore_errors' in result.tasks[4]
+        assert result.tasks[4]['ignore_errors'] is True
+        assert 'register' in result.tasks[4]
+        assertions = result.tasks[4]['ansible.builtin.assert']['that']
         assert len(assertions) == 3
         assert any('MaximumPasswordAge' in a for a in assertions)
         assert any('MinimumPasswordAge' in a for a in assertions)

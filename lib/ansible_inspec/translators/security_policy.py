@@ -10,6 +10,7 @@ Licensed under GPL-3.0
 """
 
 from typing import Dict, Any
+import re
 from .base import ResourceTranslator, TranslationResult
 
 
