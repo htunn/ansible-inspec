@@ -573,7 +573,17 @@ class AnsibleTaskGenerator:
         """Generate task for custom InSpec resource using InSpec wrapper"""
         resource_name = describe['resource']
         var_name = sanitize_variable_name(control['id'])
-        cmd = f"inspec exec - -t local:// --controls {control['id']}"
+        
+        # Quote control ID for PowerShell to handle special characters
+        if self.is_windows_profile:
+            # Escape double quotes with backtick for PowerShell
+            quoted_id = control['id'].replace('"', '`"')
+            cmd = f'inspec exec - -t local:// --controls "{quoted_id}"'
+        else:
+            # Linux - quote for shell safety
+            quoted_id = control['id'].replace('"', '\\"')
+            cmd = f'inspec exec - -t local:// --controls "{quoted_id}"'
+        
         stdin_content = self._generate_custom_resource_control(control, describe)
         
         # Windows module requires free-form syntax, Linux accepts both
@@ -609,7 +619,17 @@ class AnsibleTaskGenerator:
     def _generate_inspec_fallback_task(self, control: Dict, describe: Dict) -> Dict[str, Any]:
         """Generate InSpec wrapper task for unsupported resources"""
         var_name = sanitize_variable_name(control['id'])
-        cmd = f"inspec exec - -t local:// --controls {control['id']}"
+        
+        # Quote control ID for PowerShell to handle special characters
+        if self.is_windows_profile:
+            # Escape double quotes with backtick for PowerShell
+            quoted_id = control['id'].replace('"', '`"')
+            cmd = f'inspec exec - -t local:// --controls "{quoted_id}"'
+        else:
+            # Linux - quote for shell safety
+            quoted_id = control['id'].replace('"', '\\"')
+            cmd = f'inspec exec - -t local:// --controls "{quoted_id}"'
+        
         stdin_content = self._generate_control_snippet(control, describe)
         
         # Windows module requires free-form syntax, Linux accepts both

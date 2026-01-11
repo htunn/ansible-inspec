@@ -507,6 +507,74 @@ class TestAnsibleTaskGenerator:
         assert 'cmd' in shell_value, "Structured syntax should have 'cmd' key"
         assert 'stdin' in shell_value, "Structured syntax should have 'stdin' key"
     
+    def test_windows_control_id_quoting(self):
+        """Test that Windows tasks quote control IDs with special characters (Bug #4 fix)."""
+        generator = AnsibleTaskGenerator({}, is_windows_profile=True)
+        
+        # CIS benchmark control ID with spaces, parentheses, and quotes
+        control = {
+            'id': "1.1.2 (L1) Ensure 'Maximum password age' is set to '365 days'",
+            'title': 'Password Age Test',
+            'describes': [{
+                'resource': 'security_policy',
+                'argument': '',
+                'tests': [
+                    {'type': 'its', 'property': 'MaximumPasswordAge', 'matcher': 'cmp', 'value': '365', 'negated': False},
+                ]
+            }]
+        }
+        
+        tasks = generator.generate_tasks([control], use_native=False)
+        
+        assert len(tasks) >= 1
+        task_block = tasks[0]
+        actual_task = task_block['block'][0]
+        
+        # Verify command quotes the control ID
+        assert 'ansible.windows.win_shell' in actual_task
+        cmd = actual_task['ansible.windows.win_shell']
+        
+        # Control ID should be wrapped in double quotes
+        assert '--controls "' in cmd, "Control ID must be quoted for PowerShell"
+        assert '1.1.2 (L1)' in cmd, "Control ID content should be in command"
+        
+        # Verify backtick escaping for any double quotes in the ID (if present)
+        if '"' in control['id']:
+            # If original ID has quotes, they should be escaped with backtick
+            assert '`"' in cmd or control['id'].count('"') == 0
+    
+    def test_linux_control_id_quoting(self):
+        """Test that Linux tasks quote control IDs with special characters."""
+        generator = AnsibleTaskGenerator({}, is_windows_profile=False)
+        
+        # Control ID with special characters
+        control = {
+            'id': "test-1.2.3 (L1) Ensure 'setting' is configured",
+            'title': 'Linux Test',
+            'describes': [{
+                'resource': 'file',
+                'argument': '/etc/test',
+                'tests': [
+                    {'type': 'it', 'matcher': 'exist', 'negated': False},
+                ]
+            }]
+        }
+        
+        tasks = generator.generate_tasks([control], use_native=False)
+        
+        assert len(tasks) >= 1
+        task_block = tasks[0]
+        actual_task = task_block['block'][0]
+        
+        # Verify command quotes the control ID
+        assert 'ansible.builtin.shell' in actual_task
+        shell_dict = actual_task['ansible.builtin.shell']
+        cmd = shell_dict['cmd']
+        
+        # Control ID should be wrapped in double quotes
+        assert '--controls "' in cmd, "Control ID must be quoted for shell safety"
+        assert 'test-1.2.3 (L1)' in cmd, "Control ID content should be in command"
+    
     def test_sanitize_variable_names_in_tasks(self):
         """Test that variable names are sanitized in generated tasks."""
         generator = AnsibleTaskGenerator({})

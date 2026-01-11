@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.9] - 2026-01-11
+
+### Fixed
+
+**Bug #4 - CRITICAL: Unquoted Control IDs Cause PowerShell Parsing Errors**
+- Fixed PowerShell command parsing failures causing 100% task failure for CIS benchmark controls
+- Root cause: Control IDs with special characters (spaces, parentheses, quotes) not quoted in commands
+- Error: `L1 : The term 'L1' is not recognized as the name of a cmdlet`
+- Impact: All CIS benchmark controls failed - PowerShell interpreted control ID parts as commands
+- Example failing control ID: `1.1.2 (L1) Ensure 'Maximum password age' is set to '365 days'`
+- Solution: Quote control IDs in InSpec commands with platform-specific escaping
+- Quoting strategy:
+  - **Windows**: Wrap in double quotes with backtick escaping (`\`"` for embedded quotes)
+  - **Linux**: Wrap in double quotes with backslash escaping (`\\"` for embedded quotes)
+- Files modified:
+  - `lib/ansible_inspec/converter.py` (line 573-619): Updated `_generate_custom_resource_task()` to quote control IDs
+  - `lib/ansible_inspec/converter.py` (line 621-658): Updated `_generate_inspec_fallback_task()` to quote control IDs
+- Test coverage:
+  - Added `test_windows_control_id_quoting()` - Validates quoted control IDs on Windows
+  - Added `test_linux_control_id_quoting()` - Validates quoted control IDs on Linux
+  - Tests verify actual command structure with complex control ID examples
+- References:
+  - Bug Report: 2026-01-11
+  - Severity: CRITICAL (P0)
+  - Affected: ALL Windows CIS benchmark profiles (virtually all real-world profiles)
+  - PowerShell quoting rules: Special character handling required
+
+### Testing
+- Added control ID quoting validation tests
+- Tests use real CIS benchmark control ID format
+- Verified PowerShell and Bash quoting behavior
+
+---
+
 ## [0.1.8] - 2026-01-11
 
 ### Fixed
