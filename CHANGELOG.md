@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.5] - 2026-01-11
+
+### Fixed
+- **CRITICAL**: Fixed missing `import re` statements in translator files
+  - Added `import re` to registry_key, security_policy, windows_feature, service, file_resource translators
+  - Resolves NameError: name 're' is not defined in production usage
+  - Bug introduced in v0.2.4 when adding error handling and result tracking
+  - Updated tests to match new native translator behavior
+  - All 91 tests passing
+  - Verified with 359-control InSpec profile conversion
+
+### Technical Details
+- The v0.2.4 release added `re.sub()` calls for variable name sanitization but forgot to import `re`
+- This caused immediate runtime failures when converting any InSpec profile
+- Tests were updated to verify native translator behavior with ignore_errors and register fields
+
+---
+
 ## [0.2.4] - 2026-01-11
 
 ### Fixed
