@@ -185,7 +185,7 @@ class InSpecControlParser:
     )
     
     ITS_PATTERN = re.compile(
-        r"its\(['\"]([^'\"]+)['\"]\)\s+{\s+should(_not)?\s+(\w+)\s+['\"]?([^'\"}\s]+)?['\"]?\s*}",
+        r"its\(['\"]([^'\"]+)['\"]\)\s+{\s+should(_not)?\s+(\w+)\s*([=<>!]+)?\s*([^}]+)?\s*}",
         re.MULTILINE
     )
     
@@ -276,12 +276,26 @@ class InSpecControlParser:
             
             # Parse 'its' matchers
             for its_match in self.ITS_PATTERN.finditer(describe_body):
+                # Groups: (property, negated, matcher, operator, value)
+                operator = its_match.group(4)
+                value_str = its_match.group(5) or ""
+                
+                # Clean up value - strip quotes and whitespace
+                value_clean = value_str.strip().strip("'\"")
+                
+                # Combine operator and value if both exist
+                if operator and value_clean:
+                    full_value = f"{operator} {value_clean}"
+                else:
+                    full_value = value_clean
+                
                 describe_data['tests'].append({
                     'type': 'its',
                     'property': its_match.group(1),
                     'negated': its_match.group(2) == '_not',
                     'matcher': its_match.group(3),
-                    'value': its_match.group(4) or ""
+                    'operator': operator,
+                    'value': full_value
                 })
             
             # Parse 'it' matchers
@@ -335,17 +349,25 @@ class AnsibleTaskGenerator:
             for describe in control['describes']:
                 resource_type = describe['resource']
                 
-                # Check if this is a custom resource
-                if resource_type in self.custom_resources:
-                    control_tasks.append(
-                        self._generate_custom_resource_task(control, describe)
-                    )
-                elif use_native and resource_type in self.RESOURCE_MAP:
+                # Try to get translator (handles both built-in and custom resources)
+                translator = get_translator(resource_type, self.custom_resources)
+                
+                if translator and translator.can_translate(describe):
+                    # Use dynamic translator - supports custom resources!
+                    translation_result = translator.translate(control['id'], describe)
+                    
+                    # If translation succeeded without requiring InSpec, use it
+                    if translation_result.tasks and not translation_result.requires_inspec:
+                        control_tasks.extend(translation_result.tasks)
+                        continue
+                
+                # Fallback to legacy native tasks generation
+                if use_native and resource_type in self.RESOURCE_MAP:
                     control_tasks.extend(
                         self._generate_native_tasks(control, describe)
                     )
                 else:
-                    # Fallback to InSpec wrapper for unsupported resources
+                    # Final fallback to InSpec wrapper for unsupported resources
                     control_tasks.append(self._generate_inspec_fallback_task(control, describe))
             
             # Wrap in block with metadata

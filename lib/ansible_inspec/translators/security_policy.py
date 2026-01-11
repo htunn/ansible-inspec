@@ -101,11 +101,21 @@ class SecurityPolicyTranslator(ResourceTranslator):
                 property_name = test['property']
                 property_path = f"{var_name}.{property_name}"
                 
+                # Extract operator and value from the test
+                operator = test.get('operator')
+                value = test['value']
+                
+                # If value includes operator (like '== 365'), parse it
+                if operator and value.startswith(operator):
+                    # Remove operator from value
+                    value = value[len(operator):].strip()
+                
                 assertion = self._convert_matcher_to_assertion(
                     property_path,
                     test['matcher'],
-                    test['value'],
-                    test.get('negated', False)
+                    value,
+                    test.get('negated', False),
+                    operator
                 )
                 assertions.append(assertion)
         

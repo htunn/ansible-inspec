@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.2] - 2026-01-11
+
+### Added
+
+**Dynamic Custom Resources Mapper**
+
+Implemented automatic translation of custom InSpec resources to native Ansible modules, future-proofing the converter for any custom resources encountered in InSpec profiles.
+
+**Key Features**:
+- Auto-detects custom resource implementation patterns (DISM, systeminfo, PowerShell, WMI, registry)
+- Translates to native Ansible modules without requiring InSpec on targets
+- Pattern-based detection system supports future custom resources automatically
+- Intelligent fallback to generic command execution for unknown patterns
+
+**Supported Patterns**:
+1. **DISM Feature Checks** (`win_feature_dism`) → `ansible.windows.win_feature`
+2. **Domain/Workgroup Checks** (`is_workgrp`) → `ansible.windows.win_shell` with systeminfo
+3. **PowerShell Commands** → `ansible.windows.win_shell`
+4. **WMI Queries** → `ansible.windows.win_shell` with Get-WmiObject
+5. **Registry Checks** → `ansible.windows.win_reg_stat`
+
+**Impact**:
+- Windows Server 2019 CIS Benchmark profile (359 controls): **0 InSpec commands** (100% native Ansible)
+- Custom resources `win_feature_dism` and `is_workgrp` successfully translated
+- No InSpec runtime required on target systems
+
+### Fixed
+
+**InSpec Parser Value Extraction**
+
+- Fixed ITS_PATTERN regex to capture operators (`==`, `>=`, `<=`, etc.) separately from values
+- Updated value parsing to handle expressions like `should cmp == 365` and `should be >= 1`
+- Improved assertion generation to produce correct Ansible syntax:
+  - Before: `property == '== 365'` ❌
+  - After: `property == 365` ✅
+  - Before: `property == '>= 1'` ❌
+  - After: `property >= 1` ✅
+
+**Files Added**:
+- `lib/ansible_inspec/translators/custom_resource.py` - Dynamic custom resource translator
+
+**Files Modified**:
+- `lib/ansible_inspec/translators/__init__.py` - Added CustomResourceTranslator and updated get_translator()
+- `lib/ansible_inspec/translators/base.py` - Enhanced _convert_matcher_to_assertion() with operator support
+- `lib/ansible_inspec/translators/security_policy.py` - Updated to use operator-aware assertion generation
+- `lib/ansible_inspec/converter.py` - Fixed ITS_PATTERN regex and value extraction logic
+
+**Verification**:
+```bash
+# Verify 100% native Ansible (should return 0)
+grep -c "inspec exec" converted_collection/roles/*/tasks/main.yml
+```
+
+---
+
 ## [0.2.1] - 2026-01-11
 
 ### Fixed

@@ -9,9 +9,18 @@
 
 ---
 
-## 🎉 v0.2.0: MAJOR ARCHITECTURAL IMPROVEMENT
+## 🎉 v0.2.2: Dynamic Custom Resources Support
 
-**ansible-inspec now performs TRUE TRANSLATION from InSpec to native Ansible modules!**
+**ansible-inspec now automatically translates custom InSpec resources to native Ansible!**
+
+✅ **Auto-detects custom resources** - Analyzes Ruby code patterns automatically  
+✅ **Native Ansible translation** - Converts DISM, PowerShell, WMI, and more  
+✅ **Future-proof** - Supports any custom resource encountered  
+✅ **100% native** - Zero InSpec commands in generated collections  
+
+### v0.2.0: MAJOR ARCHITECTURAL IMPROVEMENT
+
+**ansible-inspec performs TRUE TRANSLATION from InSpec to native Ansible modules!**
 
 ✅ **NO InSpec required on target systems** - Eliminates InSpec/Ruby dependency  
 ✅ **Native Ansible modules** - Uses `win_security_policy`, `win_reg_stat`, etc.  

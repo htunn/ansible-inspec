@@ -91,7 +91,7 @@ class ResourceTranslator(ABC):
         pass
     
     def _convert_matcher_to_assertion(self, property_path: str, matcher: str, 
-                                      value: Any, negate: bool = False) -> str:
+                                      value: Any, negate: bool = False, operator: str = None) -> str:
         """
         Convert InSpec matcher to Ansible assertion expression.
         
@@ -100,6 +100,7 @@ class ResourceTranslator(ABC):
             matcher: InSpec matcher (eq, cmp, be, match, etc.)
             value: Expected value
             negate: True for should_not, False for should
+            operator: Optional operator (==, >=, <=, etc.) from InSpec test
         
         Returns:
             Ansible assertion string
@@ -108,12 +109,32 @@ class ResourceTranslator(ABC):
             >>> _convert_matcher_to_assertion('result.value', 'eq', 1, False)
             'result.value == 1'
             
-            >>> _convert_matcher_to_assertion('result.enabled', 'be', 'true', False)
-            'result.enabled == true'
+            >>> _convert_matcher_to_assertion('result.age', 'cmp', 365, False, '==')
+            'result.age == 365'
             
-            >>> _convert_matcher_to_assertion('result.name', 'match', '/foo/', False)
-            "result.name is match('foo')"
+            >>> _convert_matcher_to_assertion('result.age', 'be', 1, False, '>=')
+            'result.age >= 1'
         """
+        # If operator is provided, use it directly
+        if operator:
+            # Quote string values if needed
+            if isinstance(value, str) and not value.isdigit() and not value.startswith("'"):
+                value = f"'{value}'"
+            
+            if negate:
+                # Invert operator
+                operator_inverse = {
+                    '==': '!=',
+                    '!=': '==',
+                    '>=': '<',
+                    '<=': '>',
+                    '>': '<=',
+                    '<': '>='
+                }
+                operator = operator_inverse.get(operator, operator)
+            
+            return f"{property_path} {operator} {value}"
+        
         # Handle different matcher types
         operator_map = {
             'eq': '==',

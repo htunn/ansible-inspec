@@ -2,7 +2,11 @@
 
 Complete API reference for ansible-inspec library and CLI.
 
-**Latest Update (v0.1.6):** Fixed critical converter bug that caused 99% control loss when converting profiles with quoted control IDs. See [Bug #1 Details](#bug-fixes-and-testing) below.
+**Latest Update (v0.2.2):** Added dynamic custom resource mapper that automatically translates custom InSpec resources to native Ansible modules. Also fixed InSpec parser value extraction to properly handle operators in assertions.
+
+**v0.2.1:** Fixed critical translator field mismatch that prevented native translation.
+
+**v0.1.6:** Fixed critical converter bug that caused 99% control loss when converting profiles with quoted control IDs.
 
 ## Table of Contents
 
