@@ -1,16 +1,10 @@
 name: Build and Push Docker Image
 
 on:
-  workflow_dispatch: # Manual trigger only
-  # Auto-trigger disabled to prevent unintended builds
-  # Uncomment below to re-enable automatic builds:
-  # push:
-  #   branches:
-  #     - main
-  #   tags:
-  #     - "v*"
-  # pull_request:
-  #   branches: [main]
+  workflow_dispatch:  # Manual trigger available
+  push:
+    tags:
+      - "v*"  # Auto-build on version tags
 
 env:
   IMAGE_NAME: ansible-inspec
