@@ -1,0 +1,35 @@
+{
+  "id": "ssl-cert-demo-template-001",
+  "name": "SSL Certificate Demo - Localhost",
+  "description": "Generate and manage SSL certificates on localhost. Supports both environment-provided certificates and auto-generation.",
+  "job_type": "run",
+  "profile_path": null,
+  "reporter": "cli json",
+  "supermarket": false,
+  "playbook": "/Users/htunn/code/AI/ansible-inspec/examples/playbooks/ssl_certificate_demo.yml",
+  "project": null,
+  "inventory": "/Users/htunn/code/AI/ansible-inspec/examples/inventory.yml",
+  "credentials": [],
+  "target": null,
+  "limit": null,
+  "tags": null,
+  "skip_tags": null,
+  "extra_vars": {
+    "env_vars": {
+      "SSL_CSR": "",
+      "SSL_PRIVATE_KEY": "",
+      "SSL_CERTIFICATE": ""
+    }
+  },
+  "forks": 5,
+  "timeout": 0,
+  "verbosity": 2,
+  "diff_mode": false,
+  "job_slice_count": 1,
+  "allow_simultaneous": false,
+  "use_fact_cache": false,
+  "created_at": "2026-01-15T16:30:00",
+  "modified_at": "2026-01-15T16:46:55.981143",
+  "created_by": null,
+  "organization": null
+}

@@ -1,0 +1,89 @@
+---
+- name: Demo Compliance Check
+  hosts: localhost
+  gather_facts: yes
+  vars:
+    # Default values, can be overridden via extra_vars or environment
+    check_ssh: "{{ lookup('env', 'CHECK_SSH') | default('true') }}"
+    check_firewall: "{{ lookup('env', 'CHECK_FIREWALL') | default('true') }}"
+    min_disk_space_gb: "{{ lookup('env', 'MIN_DISK_SPACE_GB') | default('10') | int }}"
+    required_packages: "{{ lookup('env', 'REQUIRED_PACKAGES') | default('vim,curl,wget') }}"
+    
+  tasks:
+    - name: Display environment variables
+      debug:
+        msg:
+          - "Check SSH: {{ check_ssh }}"
+          - "Check Firewall: {{ check_firewall }}"
+          - "Min Disk Space: {{ min_disk_space_gb }} GB"
+          - "Required Packages: {{ required_packages }}"
+    
+    - name: Check disk space
+      shell: df -h / | tail -1 | awk '{print $4}' | sed 's/G//'
+      register: disk_space
+      changed_when: false
+      
+    - name: Verify minimum disk space
+      assert:
+        that:
+          - disk_space.stdout | regex_search('\\d+') | int >= (min_disk_space_gb | int)
+        fail_msg: "Insufficient disk space: {{ disk_space.stdout }}GB (minimum: {{ min_disk_space_gb }}GB)"
+        success_msg: "Disk space OK: {{ disk_space.stdout }}GB"
+      when: disk_space.stdout | regex_search('\\d+')
+    
+    - name: Check if SSH service is running (when enabled)
+      shell: |
+        if command -v systemctl &> /dev/null; then
+          systemctl is-active ssh || systemctl is-active sshd || echo "not-found"
+        else
+          echo "systemctl-not-available"
+        fi
+      register: ssh_status
+      changed_when: false
+      when: check_ssh | bool
+      
+    - name: Report SSH status
+      debug:
+        msg: "SSH service status: {{ ssh_status.stdout }}"
+      when: check_ssh | bool
+    
+    - name: Check required packages are installed
+      shell: |
+        IFS=',' read -ra PKGS <<< "{{ required_packages }}"
+        missing=""
+        for pkg in "${PKGS[@]}"; do
+          pkg=$(echo "$pkg" | xargs)  # trim whitespace
+          if ! command -v "$pkg" &> /dev/null; then
+            missing="$missing $pkg"
+          fi
+        done
+        if [ -n "$missing" ]; then
+          echo "missing:$missing"
+          exit 1
+        else
+          echo "all-installed"
+        fi
+      register: package_check
+      changed_when: false
+      failed_when: false
+      
+    - name: Report package status
+      debug:
+        msg: |
+          {% if 'missing:' in package_check.stdout %}
+          Missing packages: {{ package_check.stdout.split(':')[1] }}
+          {% else %}
+          All required packages are installed
+          {% endif %}
+    
+    - name: System information summary
+      debug:
+        msg:
+          - "=== Compliance Check Summary ==="
+          - "Hostname: {{ ansible_hostname }}"
+          - "OS: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+          - "Kernel: {{ ansible_kernel }}"
+          - "Architecture: {{ ansible_architecture }}"
+          - "Python version: {{ ansible_python_version }}"
+          - "Disk space available: {{ disk_space.stdout }}GB"
+          - "Compliance status: {% if package_check.rc == 0 %}PASS{% else %}FAIL{% endif %}"

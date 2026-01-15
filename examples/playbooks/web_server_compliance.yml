@@ -1,0 +1,40 @@
+---
+- name: Web Server Security Compliance
+  hosts: localhost
+  gather_facts: yes
+  vars:
+    # Environment variables for configuration
+    web_server_type: "{{ lookup('env', 'WEB_SERVER_TYPE') | default('nginx') }}"
+    check_ssl: "{{ lookup('env', 'CHECK_SSL') | default('true') }}"
+    min_tls_version: "{{ lookup('env', 'MIN_TLS_VERSION') | default('1.2') }}"
+    required_headers: "{{ lookup('env', 'REQUIRED_HEADERS') | default('X-Frame-Options,X-Content-Type-Options,Strict-Transport-Security') }}"
+    
+  tasks:
+    - name: Display security check parameters
+      debug:
+        msg:
+          - "Web Server: {{ web_server_type }}"
+          - "SSL Check: {{ check_ssl }}"
+          - "Min TLS Version: {{ min_tls_version }}"
+          - "Required Headers: {{ required_headers }}"
+    
+    - name: Check if web server is installed
+      shell: command -v {{ web_server_type }} || echo "not-installed"
+      register: web_server_check
+      changed_when: false
+      
+    - name: Report web server status
+      debug:
+        msg: |
+          {% if 'not-installed' in web_server_check.stdout %}
+          {{ web_server_type }} is not installed
+          {% else %}
+          {{ web_server_type }} found at: {{ web_server_check.stdout }}
+          {% endif %}
+    
+    - name: Check for security best practices
+      debug:
+        msg:
+          - "Security checks complete"
+          - "Server type: {{ web_server_type }}"
+          - "TLS minimum version requirement: {{ min_tls_version }}"

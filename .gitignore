@@ -73,3 +73,4 @@ ansible-inspec
 *.sh
 tmp/
 ansible-inspec-docs/
+data/jobs/

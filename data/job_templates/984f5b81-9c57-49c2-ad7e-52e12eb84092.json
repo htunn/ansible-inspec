@@ -1,0 +1,24 @@
+{
+  "id": "984f5b81-9c57-49c2-ad7e-52e12eb84092",
+  "name": "Demo Compliance Check",
+  "description": null,
+  "playbook": "/Users/htunn/code/AI/ansible-inspec/examples/playbooks/demo_compliance.yml",
+  "profile_path": null,
+  "inventory": "/Users/htunn/code/AI/ansible-inspec/examples/inventory.yml",
+  "extra_vars": {
+    "env_vars": {
+      "CHECK_SSH": "true",
+      "MIN_DISK_SPACE_GB": "20",
+      "REQUIRED_PACKAGES": "vim,curl,git"
+    }
+  },
+  "limit": null,
+  "tags": null,
+  "skip_tags": null,
+  "verbosity": 2,
+  "diff_mode": false,
+  "job_type": "run",
+  "forks": 5,
+  "timeout": 0,
+  "created_at": "2026-01-15T15:30:00"
+}

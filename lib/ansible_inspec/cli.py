@@ -169,6 +169,33 @@ For more information, visit: https://github.com/htunn/ansible-inspec
         help='Show license information'
     )
     
+    # start-server command
+    server_parser = subparsers.add_parser(
+        'start-server',
+        help='Start InSpec Execution Server with Web UI and REST API'
+    )
+    server_parser.add_argument(
+        '--host',
+        default='0.0.0.0',
+        help='Host to bind to (default: 0.0.0.0)'
+    )
+    server_parser.add_argument(
+        '--port',
+        type=int,
+        default=8080,
+        help='Port to bind to (default: 8080)'
+    )
+    server_parser.add_argument(
+        '--data-dir',
+        default='./data',
+        help='Directory for data storage (default: ./data)'
+    )
+    server_parser.add_argument(
+        '--no-ui',
+        action='store_true',
+        help='Start API server only without Streamlit UI'
+    )
+    
     return parser
 
 
@@ -453,6 +480,93 @@ GPL-3.0
                 
         except Exception as e:
             print(f"Conversion error: {e}", file=sys.stderr)
+            import traceback
+            traceback.print_exc()
+            return 1
+    
+    elif args.command == 'start-server':
+        """Start the InSpec Execution Server"""
+        try:
+            import subprocess
+            import threading
+            import time
+            from pathlib import Path
+            
+            print("""
+╔════════════════════════════════════════════════════════════════╗
+║                                                                ║
+║           InSpec Execution Server                              ║
+║                                                                ║
+║  Web UI and REST API for ansible-inspec                        ║
+║  License-safe alternative for InSpec automation                ║
+║                                                                ║
+╚════════════════════════════════════════════════════════════════╝
+""")
+            
+            # Start FastAPI server in a background thread
+            def run_api_server():
+                from ansible_inspec.server.api import run_server
+                run_server(host=args.host, port=args.port, data_dir=args.data_dir)
+            
+            api_thread = threading.Thread(target=run_api_server, daemon=True)
+            api_thread.start()
+            
+            # Give API server time to start
+            time.sleep(2)
+            
+            if not args.no_ui:
+                # Start Streamlit UI
+                streamlit_app = Path(__file__).parent / 'server' / 'streamlit_app.py'
+                streamlit_port = args.port + 1  # Use next port for Streamlit
+                
+                print(f"""
+🚀 Server started successfully!
+
+📊 Web UI (Streamlit):  http://{args.host}:{streamlit_port}
+🔌 REST API (FastAPI):  http://{args.host}:{args.port}
+📚 API Docs (Swagger):  http://{args.host}:{args.port}/docs
+📖 API Docs (ReDoc):    http://{args.host}:{args.port}/redoc
+
+💾 Data directory: {args.data_dir}
+
+Press Ctrl+C to stop the server
+""")
+                
+                # Run Streamlit in foreground
+                subprocess.run([
+                    'streamlit', 'run',
+                    str(streamlit_app),
+                    '--server.port', str(streamlit_port),
+                    '--server.address', args.host,
+                    '--server.headless', 'true',
+                    '--browser.gatherUsageStats', 'false'
+                ])
+            else:
+                print(f"""
+🚀 API Server started successfully!
+
+🔌 REST API (FastAPI):  http://{args.host}:{args.port}
+📚 API Docs (Swagger):  http://{args.host}:{args.port}/docs
+📖 API Docs (ReDoc):    http://{args.host}:{args.port}/redoc
+
+💾 Data directory: {args.data_dir}
+
+Press Ctrl+C to stop the server
+""")
+                # Keep the main thread alive
+                try:
+                    while True:
+                        time.sleep(1)
+                except KeyboardInterrupt:
+                    pass
+            
+            return 0
+            
+        except KeyboardInterrupt:
+            print("\n\n✓ Server stopped")
+            return 0
+        except Exception as e:
+            print(f"Error starting server: {e}", file=sys.stderr)
             import traceback
             traceback.print_exc()
             return 1

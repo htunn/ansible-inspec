@@ -10,6 +10,8 @@
 ---
 A compliance and infrastructure testing tool that **converts InSpec profiles to native Ansible collections**, enabling compliance testing through pure Ansible without requiring InSpec on target systems.
 
+**✨ NEW in v0.3.0**: Web UI and REST API Server for job automation and workflow management!
+
 ## Overview
 
 `ansible-inspec` bridges two powerful open-source projects:
@@ -23,14 +25,22 @@ A compliance and infrastructure testing tool that **converts InSpec profiles to 
 
 Ansible-InSpec provides **true InSpec-to-Ansible migration**, giving you:
 
-#### ✅ **No InSpec Dependency (NEW in v0.2.0)**
+#### 🌐 **Web UI & REST API (NEW in v0.3.0)**
+- **📊 Streamlit Dashboard**: Modern web interface for job management
+- **🔌 FastAPI Server**: RESTful API for automation and integration
+- **📋 Job Templates**: Reusable compliance check configurations
+- **🚀 Background Execution**: Non-blocking job execution with status tracking
+- **🔄 Workflow Management**: Chain multiple compliance checks together
+- **📚 Auto-generated API Docs**: Swagger UI and ReDoc documentation
+
+#### ✅ **No InSpec Dependency (v0.2.0)**
 - **Native Translation**: Converts InSpec resources to Ansible modules
 - **No Target Installation**: InSpec NOT required on target systems
 - **Only PowerShell**: Windows targets need only built-in PowerShell
 - **True Migration**: Actually migrate FROM InSpec TO Ansible ecosystem
 
 #### 🚀 **Supported Resource Translation**
-v0.2.0 translates these InSpec resources to **native Ansible**:
+v0.2.0+ translates these InSpec resources to **native Ansible**:
 - `security_policy` → `ansible.windows.win_security_policy`
 - `registry_key` → `ansible.windows.win_reg_stat`
 - `audit_policy` → `ansible.windows.win_shell` (auditpol)
@@ -97,6 +107,9 @@ v0.2.0 translates these InSpec resources to **native Ansible**:
 
 ## Features
 
+- **🌐 Web UI & REST API (NEW)**: Modern Streamlit dashboard and FastAPI server for job automation
+- **📋 Job Templates**: Reusable templates for compliance checks with background execution
+- **🔄 Workflow Management**: Chain multiple compliance checks for complex scenarios
 - **Profile Conversion**: Convert Ruby-based InSpec profiles to Ansible collections with full custom resource support
 - **Chef Supermarket Integration**: Access 100+ pre-built compliance profiles from Chef Supermarket (CIS benchmarks, DevSec baselines, DISA STIGs)
 - **Infrastructure as Code Testing**: Test your infrastructure configurations using InSpec's DSL
@@ -107,12 +120,55 @@ v0.2.0 translates these InSpec resources to **native Ansible**:
 - **Multi-Format Reporting**: Generate compliance reports in JSON, HTML, JUnit formats
 - **InSpec-Free Mode**: Run converted profiles without InSpec installation
 
-## Installation
+## Quick Start
 
-### From PyPI (Recommended)
+### Installation
 
 ```bash
+# Install with server features
 pip install ansible-inspec
+
+# Or from source with server extras
+git clone https://github.com/Htunn/ansible-inspec.git
+cd ansible-inspec
+pip install -e ".[server]"
+```
+
+### Web UI & Server (NEW!)
+
+Start the InSpec Execution Server with Web UI:
+
+```bash
+# Start both Web UI (Streamlit) and API server (FastAPI)
+ansible-inspec start-server
+```
+
+This starts:
+- **📊 Web UI (Streamlit)**: http://localhost:8081
+- **🔌 REST API (FastAPI)**: http://localhost:8080
+- **📚 API Docs (Swagger)**: http://localhost:8080/docs
+- **📖 API Docs (ReDoc)**: http://localhost:8080/redoc
+
+**Features:**
+- Create and manage job templates
+- Launch compliance checks via web interface
+- Monitor job execution in real-time
+- View results and statistics
+- RESTful API for automation
+
+See [Server Documentation](docs/SERVER.md) for detailed usage.
+
+### Command Line Usage
+
+```bash
+# Execute a profile from Chef Supermarket
+ansible-inspec exec dev-sec/linux-baseline --supermarket -i inventory.yml
+
+# Run a local profile
+ansible-inspec exec ./my-profile -i inventory.yml
+
+# Convert InSpec profile to Ansible collection
+ansible-inspec convert ./my-profile -o ./collections
 ```
 
 ### From Docker Hub
@@ -129,6 +185,7 @@ See [Docker Usage Guide](docs/DOCKER.md) for detailed Docker instructions.
 
 ## Documentation
 
+- **[Server Documentation](docs/SERVER.md)** - Web UI and REST API server guide (NEW!)
 - **[API Documentation](docs/API.md)** - Complete Python API and CLI reference
 - **[Quick Reference](docs/QUICK-REFERENCE.md)** - Common commands and workflows
 - **[Publishing Guide](docs/PUBLISHING-GUIDE.md)** - PyPI and Docker publishing instructions

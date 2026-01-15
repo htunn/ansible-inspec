@@ -1,0 +1,143 @@
+---
+- name: SSL Certificate Management Demo
+  hosts: localhost
+  gather_facts: yes
+  vars:
+    cert_dir: "/tmp/ssl-demo"
+    cert_country: "US"
+    cert_state: "California"
+    cert_city: "San Francisco"
+    cert_org: "Example Corp"
+    cert_cn: "localhost"
+    
+  tasks:
+    - name: Create certificate directory
+      file:
+        path: "{{ cert_dir }}"
+        state: directory
+        mode: '0755'
+    
+    - name: Check if CSR is provided via environment
+      set_fact:
+        csr_from_env: "{{ lookup('env', 'SSL_CSR') }}"
+        key_from_env: "{{ lookup('env', 'SSL_PRIVATE_KEY') }}"
+        cert_from_env: "{{ lookup('env', 'SSL_CERTIFICATE') }}"
+    
+    - name: Write CSR to file (if provided)
+      copy:
+        content: "{{ (csr_from_env | replace('\\n', '\n')) + '\n' if not (csr_from_env | replace('\\n', '\n')).endswith('\n') else (csr_from_env | replace('\\n', '\n')) }}"
+        dest: "{{ cert_dir }}/server.csr"
+        mode: '0644'
+      when: csr_from_env | length > 0
+    
+    - name: Write private key to file (if provided)
+      copy:
+        content: "{{ (key_from_env | replace('\\n', '\n')) + '\n' if not (key_from_env | replace('\\n', '\n')).endswith('\n') else (key_from_env | replace('\\n', '\n')) }}"
+        dest: "{{ cert_dir }}/server.key"
+        mode: '0600'
+      when: key_from_env | length > 0
+      no_log: true
+    
+    - name: Write certificate to file (if provided)
+      copy:
+        content: "{{ (cert_from_env | replace('\\n', '\n')) + '\n' if not (cert_from_env | replace('\\n', '\n')).endswith('\n') else (cert_from_env | replace('\\n', '\n')) }}"
+        dest: "{{ cert_dir }}/server.crt"
+        mode: '0644'
+      when: cert_from_env | length > 0
+    
+    - name: Generate private key (if not provided)
+      command: >
+        openssl genrsa -out {{ cert_dir }}/server.key 2048
+      args:
+        creates: "{{ cert_dir }}/server.key"
+      when: key_from_env | length == 0
+    
+    - name: Generate CSR (if not provided)
+      command: >
+        openssl req -new -key {{ cert_dir }}/server.key
+        -out {{ cert_dir }}/server.csr
+        -subj "/C={{ cert_country }}/ST={{ cert_state }}/L={{ cert_city }}/O={{ cert_org }}/CN={{ cert_cn }}"
+      args:
+        creates: "{{ cert_dir }}/server.csr"
+      when: csr_from_env | length == 0
+    
+    - name: Generate self-signed certificate (if not provided)
+      command: >
+        openssl x509 -req -days 365
+        -in {{ cert_dir }}/server.csr
+        -signkey {{ cert_dir }}/server.key
+        -out {{ cert_dir }}/server.crt
+      args:
+        creates: "{{ cert_dir }}/server.crt"
+      when: cert_from_env | length == 0
+    
+    - name: Set secure permissions on private key
+      file:
+        path: "{{ cert_dir }}/server.key"
+        mode: '0600'
+    
+    - name: Verify certificate files exist
+      stat:
+        path: "{{ item }}"
+      register: cert_files
+      loop:
+        - "{{ cert_dir }}/server.key"
+        - "{{ cert_dir }}/server.csr"
+        - "{{ cert_dir }}/server.crt"
+    
+    - name: Display certificate information
+      command: openssl x509 -in {{ cert_dir }}/server.crt -text -noout
+      register: cert_info
+      changed_when: false
+    
+    - name: Show certificate details
+      debug:
+        msg: |
+          Certificate created successfully!
+          
+          Location: {{ cert_dir }}
+          
+          Files:
+          - Private Key: {{ cert_dir }}/server.key (permissions: 0600)
+          - CSR: {{ cert_dir }}/server.csr
+          - Certificate: {{ cert_dir }}/server.crt
+          
+          Certificate Info:
+          {{ cert_info.stdout }}
+    
+    - name: Verify certificate matches private key
+      shell: |
+        key_md5=$(openssl rsa -noout -modulus -in {{ cert_dir }}/server.key | openssl md5)
+        cert_md5=$(openssl x509 -noout -modulus -in {{ cert_dir }}/server.crt | openssl md5)
+        if [ "$key_md5" = "$cert_md5" ]; then
+          echo "✓ Certificate and private key match"
+        else
+          echo "✗ Certificate and private key DO NOT match"
+          exit 1
+        fi
+      register: verify_result
+      changed_when: false
+    
+    - name: Display verification result
+      debug:
+        msg: "{{ verify_result.stdout }}"
+    
+    - name: Create summary report
+      debug:
+        msg:
+          - "=== SSL Certificate Demo Summary ==="
+          - "Status: SUCCESS"
+          - "Certificate Directory: {{ cert_dir }}"
+          - "Common Name (CN): {{ cert_cn }}"
+          - "Validity: 365 days"
+          - "Key Size: 2048 bits"
+          - "Certificate Type: Self-signed"
+          - ""
+          - "Usage Examples:"
+          - "  nginx: ssl_certificate {{ cert_dir }}/server.crt;"
+          - "         ssl_certificate_key {{ cert_dir }}/server.key;"
+          - ""
+          - "  apache: SSLCertificateFile {{ cert_dir }}/server.crt"
+          - "          SSLCertificateKeyFile {{ cert_dir }}/server.key"
+          - ""
+          - "  curl: curl --cacert {{ cert_dir }}/server.crt https://localhost"
