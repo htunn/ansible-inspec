@@ -35,7 +35,7 @@ RUN useradd -m -u 1000 -s /bin/bash ansibleinspec && \
   mkdir -p /workspace && \
   chown -R ansibleinspec:ansibleinspec /workspace
 
-# Copy installed package from builder
+# Copy installed packages from builder
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin/ansible-inspec /usr/local/bin/ansible-inspec
 
@@ -50,3 +50,6 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 # Default command
 ENTRYPOINT ["ansible-inspec"]
 CMD ["--help"]
+
+
+

@@ -8,8 +8,8 @@ This module provides a web-based execution platform for InSpec profile execution
 with ansible-inspec, offering job templates, workflow management, and REST API access.
 """
 
-from .api import create_app
+from .api import app
 from .models import JobTemplate, Job, WorkflowTemplate
 from .executor import JobExecutor
 
-__all__ = ['create_app', 'JobTemplate', 'Job', 'WorkflowTemplate', 'JobExecutor']
+__all__ = ['app', 'JobTemplate', 'Job', 'WorkflowTemplate', 'JobExecutor']

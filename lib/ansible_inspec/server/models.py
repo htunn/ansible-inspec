@@ -10,6 +10,9 @@ from enum import Enum
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass, field, asdict
 import uuid
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class JobStatus(str, Enum):
@@ -186,4 +189,91 @@ class WorkflowTemplate:
         if 'nodes' in data:
             data['nodes'] = [WorkflowNode(**node) if isinstance(node, dict) else node 
                            for node in data['nodes']]
+        return cls(**data)
+
+
+@dataclass
+class VCSCredential:
+    """
+    VCS credential with encryption support
+    Stores Git/GitHub/GitLab credentials for repository access
+    """
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    name: str = ""
+    vcs_type: str = "git"  # git, github, gitlab, bitbucket
+    username: Optional[str] = None
+    password: Optional[str] = None  # Encrypted
+    ssh_private_key: Optional[str] = None  # Encrypted
+    token: Optional[str] = None  # Encrypted (PAT, API key)
+    repository_url: str = ""
+    created_at: datetime = field(default_factory=datetime.now)
+    encrypted: bool = False  # Flag indicating encryption status
+    
+    def encrypt_credentials(self, encryption_service):
+        """Encrypt sensitive fields using EncryptionService"""
+        if not self.encrypted:
+            if self.password:
+                self.password = encryption_service.encrypt(self.password)
+            if self.ssh_private_key:
+                self.ssh_private_key = encryption_service.encrypt(self.ssh_private_key)
+            if self.token:
+                self.token = encryption_service.encrypt(self.token)
+            self.encrypted = True
+    
+    def decrypt_credentials(self, encryption_service):
+        """Decrypt sensitive fields for use"""
+        if self.encrypted:
+            try:
+                if self.password:
+                    self.password = encryption_service.decrypt(self.password)
+                if self.ssh_private_key:
+                    self.ssh_private_key = encryption_service.decrypt(self.ssh_private_key)
+                if self.token:
+                    self.token = encryption_service.decrypt(self.token)
+                # Keep encrypted=True to prevent double encryption
+            except Exception as e:
+                logger.error(f"Failed to decrypt credentials: {e}")
+                raise
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization"""
+        data = asdict(self)
+        data['created_at'] = self.created_at.isoformat()
+        return data
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'VCSCredential':
+        """Create VCSCredential from dictionary"""
+        if 'created_at' in data and isinstance(data['created_at'], str):
+            data['created_at'] = datetime.fromisoformat(data['created_at'])
+        return cls(**data)
+
+
+@dataclass
+class User:
+    """User model for authentication and authorization"""
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    username: str = ""
+    email: Optional[str] = None
+    name: Optional[str] = None
+    roles: List[str] = field(default_factory=list)  # admin, operator, viewer
+    tenant_id: Optional[str] = None  # Azure AD tenant
+    created_at: datetime = field(default_factory=datetime.now)
+    last_login: Optional[datetime] = None
+    active: bool = True
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization"""
+        data = asdict(self)
+        data['created_at'] = self.created_at.isoformat()
+        data['last_login'] = self.last_login.isoformat() if self.last_login else None
+        return data
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'User':
+        """Create User from dictionary"""
+        if 'created_at' in data and isinstance(data['created_at'], str):
+            data['created_at'] = datetime.fromisoformat(data['created_at'])
+        if 'last_login' in data and data['last_login'] and isinstance(data['last_login'], str):
+            data['last_login'] = datetime.fromisoformat(data['last_login'])
         return cls(**data)

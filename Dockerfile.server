@@ -1,0 +1,93 @@
+# Multi-stage build for ansible-inspec API Server with Prisma ORM
+FROM python:3.13-slim AS builder
+
+LABEL maintainer="ansible-inspec project contributors"
+LABEL description="Compliance testing with Ansible and InSpec integration - API Server"
+LABEL version="0.4.0"
+
+# Install build dependencies including Node.js for Prisma
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  build-essential \
+  git \
+  curl \
+  ca-certificates \
+  gnupg \
+  && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+  && apt-get install -y nodejs \
+  && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy project files
+COPY pyproject.toml README.md LICENSE NOTICE schema.prisma ./
+COPY lib/ lib/
+COPY bin/ bin/
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip && \
+  pip install --no-cache-dir .
+
+# Generate Prisma client
+RUN prisma generate
+
+# Copy Prisma binaries to a location accessible in final stage
+RUN mkdir -p /tmp/prisma-binaries && \
+  cp -r /root/.cache/prisma-python /tmp/prisma-binaries/ || true
+
+# Final stage - runtime
+FROM python:3.13-slim
+
+# Install runtime dependencies including Node.js for Prisma
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  openssh-client \
+  curl \
+  ca-certificates \
+  gnupg \
+  && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+  && apt-get install -y nodejs \
+  && rm -rf /var/lib/apt/lists/*
+
+# Install InSpec for profile execution
+RUN curl -fsSL https://omnitruck.chef.io/install.sh | bash -s -- -P inspec
+
+# Create non-root user and setup directories
+RUN useradd -m -u 1000 -s /bin/bash ansibleinspec && \
+  mkdir -p /app/data /app/profiles /home/ansibleinspec/.cache && \
+  chown -R ansibleinspec:ansibleinspec /app /home/ansibleinspec/.cache
+
+# Copy installed packages from builder
+COPY --from=builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
+COPY --from=builder /usr/local/bin/ansible-inspec /usr/local/bin/ansible-inspec
+COPY --from=builder /usr/local/bin/prisma /usr/local/bin/prisma
+COPY --from=builder /usr/local/bin/uvicorn /usr/local/bin/uvicorn
+
+# Copy schema for Prisma
+COPY --from=builder /app/schema.prisma /app/schema.prisma
+
+# Copy entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Copy Prisma binaries and set permissions
+COPY --from=builder --chown=ansibleinspec:ansibleinspec /tmp/prisma-binaries/prisma-python /home/ansibleinspec/.cache/prisma-python
+
+# Set user and working directory
+USER ansibleinspec
+WORKDIR /app
+
+# Set Prisma binary paths to use non-root user's cache
+ENV PRISMA_QUERY_ENGINE_BINARY=/home/ansibleinspec/.cache/prisma-python/binaries/5.17.0/393aa359c9ad4a4bb28630fb5613f9c281cde053/node_modules/prisma/query-engine-linux-arm64-openssl-3.0.x
+
+# Expose API port
+EXPOSE 8080
+
+# Add healthcheck for API server
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD curl -f http://localhost:8080/health || exit 1
+
+# Use entrypoint to run migrations before starting
+ENTRYPOINT ["docker-entrypoint.sh"]
+
+# Default command - run API server
+CMD ["uvicorn", "ansible_inspec.server:app", "--host", "0.0.0.0", "--port", "8080"]

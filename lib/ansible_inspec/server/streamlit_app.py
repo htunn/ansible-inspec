@@ -21,8 +21,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# API Base URL
-API_BASE = "http://localhost:8080/api/v1"
+# API Base URL - use environment variable for Docker, fallback to localhost
+import os
+API_BASE = os.getenv("API_BASE_URL", "http://localhost:8080/api/v1")
 
 def get_statistics():
     """Get server statistics"""

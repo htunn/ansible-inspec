@@ -1,0 +1,209 @@
+// Prisma schema for ansible-inspec
+// Supports PostgreSQL database with async Python client
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider             = "prisma-client-py"
+  interface            = "asyncio"
+  recursive_type_depth = 5
+}
+
+// User model for authentication and RBAC
+model User {
+  id        String    @id @default(uuid())
+  username  String    @unique
+  email     String    @unique
+  name      String?
+  roles     Json      @default("[]") // Array of roles: admin, operator, viewer
+  tenantId  String?   @map("tenant_id")
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now()) @map("created_at")
+  lastLogin DateTime? @map("last_login")
+
+  // Relations
+  createdTemplates JobTemplate[]
+  createdJobs      Job[]
+  createdWorkflows WorkflowTemplate[]
+
+  @@index([username])
+  @@index([email])
+  @@index([tenantId])
+  @@map("users")
+}
+
+// Job Template model for InSpec profile configurations
+model JobTemplate {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  profile     String // InSpec profile path or URL
+  extraVars   Json     @default("{}") @map("extra_vars") // Additional variables as JSONB
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdBy   String?  @map("created_by")
+  tenantId    String?  @map("tenant_id")
+
+  // VCS integration
+  vcsRepoId String? @map("vcs_repo_id")
+  vcsPath   String? @map("vcs_path") // Path within repository
+  vcsSync   Boolean @default(false) @map("vcs_sync") // Auto-sync from VCS
+
+  // Relations
+  creator       User?          @relation(fields: [createdBy], references: [id])
+  vcsRepo       VCSRepository? @relation(fields: [vcsRepoId], references: [id])
+  jobs          Job[]
+  workflowNodes WorkflowNode[]
+
+  @@index([name])
+  @@index([createdBy])
+  @@index([tenantId])
+  @@index([vcsRepoId])
+  @@map("job_templates")
+}
+
+// Job model for execution records
+model Job {
+  id           String    @id @default(uuid())
+  templateId   String    @map("template_id")
+  templateName String    @map("template_name")
+  status       String    @default("pending") // pending, running, success, failed
+  target       String? // Target host/inventory
+  extraVars    Json      @default("{}") @map("extra_vars")
+  stdout       String?   @db.Text // Console output
+  stderr       String?   @db.Text // Error output
+  exitCode     Int?      @map("exit_code")
+  startedAt    DateTime? @map("started_at")
+  finishedAt   DateTime? @map("finished_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  createdBy    String?   @map("created_by")
+  tenantId     String?   @map("tenant_id")
+
+  // Relations
+  template JobTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  creator  User?       @relation(fields: [createdBy], references: [id])
+
+  @@index([templateId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([createdBy])
+  @@index([tenantId])
+  @@map("jobs")
+}
+
+// Workflow Template model for multi-job workflows
+model WorkflowTemplate {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdBy   String?  @map("created_by")
+  tenantId    String?  @map("tenant_id")
+
+  // Relations
+  creator User?          @relation(fields: [createdBy], references: [id])
+  nodes   WorkflowNode[]
+
+  @@index([name])
+  @@index([createdBy])
+  @@index([tenantId])
+  @@map("workflow_templates")
+}
+
+// Workflow Node model for workflow steps
+model WorkflowNode {
+  id           String   @id @default(uuid())
+  workflowId   String   @map("workflow_id")
+  templateId   String   @map("template_id")
+  name         String
+  position     Int // Order in workflow
+  dependencies Json     @default("[]") // Array of node IDs that must complete first
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  workflow WorkflowTemplate @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  template JobTemplate      @relation(fields: [templateId], references: [id])
+
+  @@unique([workflowId, position])
+  @@index([workflowId])
+  @@index([templateId])
+  @@map("workflow_nodes")
+}
+
+// VCS Credential model for storing encrypted Git credentials
+model VCSCredential {
+  id            String   @id @default(uuid())
+  name          String   @unique
+  vcsType       String   @map("vcs_type") // github, gitlab, bitbucket, git
+  username      String?
+  password      String? // Encrypted
+  sshPrivateKey String?  @map("ssh_private_key") @db.Text // Encrypted
+  token         String? // Encrypted PAT or access token
+  repositoryUrl String?  @map("repository_url")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  tenantId      String?  @map("tenant_id")
+
+  // Relations
+  repositories VCSRepository[]
+
+  @@index([name])
+  @@index([vcsType])
+  @@index([tenantId])
+  @@map("vcs_credentials")
+}
+
+// VCS Repository model for Git repository sync configuration
+model VCSRepository {
+  id             String    @id @default(uuid())
+  name           String    @unique
+  url            String // Git repository URL
+  branch         String    @default("main")
+  credentialId   String?   @map("credential_id")
+  pollInterval   Int       @default(300) @map("poll_interval") // Seconds
+  lastSyncAt     DateTime? @map("last_sync_at")
+  lastCommitHash String?   @map("last_commit_hash")
+  syncStatus     String    @default("idle") @map("sync_status") // idle, syncing, success, failed
+  syncError      String?   @map("sync_error") @db.Text
+  profilePath    String    @default("inspec") @map("profile_path") // Path to InSpec profiles
+  autoImport     Boolean   @default(true) @map("auto_import") // Auto-create job templates
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  tenantId       String?   @map("tenant_id")
+
+  // Relations
+  credential   VCSCredential? @relation(fields: [credentialId], references: [id])
+  jobTemplates JobTemplate[]
+
+  @@index([name])
+  @@index([credentialId])
+  @@index([lastSyncAt])
+  @@index([tenantId])
+  @@map("vcs_repositories")
+}
+
+// Audit Log model for tracking user actions
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id")
+  username   String?
+  action     String // create, update, delete, execute, login, logout
+  resource   String // job_template, job, workflow, user, vcs_credential, etc.
+  resourceId String?  @map("resource_id")
+  details    Json     @default("{}")
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  tenantId   String?  @map("tenant_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([action])
+  @@index([resource])
+  @@index([createdAt])
+  @@index([tenantId])
+  @@map("audit_logs")
+}

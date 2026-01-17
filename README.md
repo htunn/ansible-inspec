@@ -10,7 +10,7 @@
 ---
 A compliance and infrastructure testing tool that **converts InSpec profiles to native Ansible collections**, enabling compliance testing through pure Ansible without requiring InSpec on target systems.
 
-**✨ NEW in v0.3.0**: Web UI and REST API Server for job automation and workflow management!
+**✨ NEW in v0.4.0**: Enterprise features - Azure AD Authentication, PostgreSQL Database, VCS Sync!
 
 ## Overview
 
@@ -25,7 +25,25 @@ A compliance and infrastructure testing tool that **converts InSpec profiles to 
 
 Ansible-InSpec provides **true InSpec-to-Ansible migration**, giving you:
 
-#### 🌐 **Web UI & REST API (NEW in v0.3.0)**
+#### 🔐 **Enterprise Security (NEW in v0.4.0)**
+- **🔑 Azure AD OAuth2**: Enterprise SSO with role-based access control
+- **🔒 Encrypted Credentials**: Fernet symmetric encryption for VCS credentials
+- **👥 Multi-User Support**: User authentication and authorization
+- **📊 Audit Logging**: Track who performed what actions
+
+#### 💾 **Production-Ready Storage (NEW in v0.4.0)**
+- **🗄️ PostgreSQL Database**: Scalable database backend with connection pooling
+- **🔄 Hybrid Storage**: Dual-write validation mode for safe migration
+- **📈 Monitoring**: Prometheus metrics for storage operations
+- **🔁 Automatic Cutover**: Validated transition from file to database storage
+
+#### 🔄 **Version Control Integration (NEW in v0.4.0)**
+- **📦 Git Repository Sync**: Automatic sync of InSpec profiles from GitHub/GitLab
+- **⏱️ Polling & Webhooks**: Both periodic polling and event-driven sync
+- **🔐 Secure Credentials**: Encrypted SSH keys and tokens
+- **🚀 Auto-Import**: Automatically create job templates from synced profiles
+
+#### 🌐 **Web UI & REST API (v0.3.0)**
 - **📊 Streamlit Dashboard**: Modern web interface for job management
 - **🔌 FastAPI Server**: RESTful API for automation and integration
 - **📋 Job Templates**: Reusable compliance check configurations
@@ -107,9 +125,36 @@ v0.2.0+ translates these InSpec resources to **native Ansible**:
 
 ## Features
 
-- **🌐 Web UI & REST API (NEW)**: Modern Streamlit dashboard and FastAPI server for job automation
-- **📋 Job Templates**: Reusable templates for compliance checks with background execution
-- **🔄 Workflow Management**: Chain multiple compliance checks for complex scenarios
+### 🌐 Server Features (NEW in v0.4.0)
+
+- **🔐 Enterprise Security**
+  - Azure AD OAuth2 authentication with SSO
+  - Role-based access control (RBAC)
+  - Fernet encrypted credential storage
+  - Multi-user support with audit logging
+  
+- **💾 Production Database**
+  - PostgreSQL backend with connection pooling
+  - Prisma ORM for type-safe database operations
+  - Hybrid storage mode for safe migration
+  - Prometheus metrics for monitoring
+  
+- **🔄 VCS Integration**
+  - Automatic Git repository sync (GitHub/GitLab)
+  - Polling and webhook support
+  - Encrypted SSH keys and tokens
+  - Auto-import of InSpec profiles
+  
+- **📊 Web UI & REST API**
+  - Modern FastAPI server with async operations
+  - Auto-generated API documentation (Swagger/ReDoc)
+  - Job templates for reusable compliance checks
+  - Background job execution with real-time status
+  - Workflow orchestration for complex scenarios
+  - Health checks and Prometheus metrics
+
+### 🔧 CLI Features
+
 - **Profile Conversion**: Convert Ruby-based InSpec profiles to Ansible collections with full custom resource support
 - **Chef Supermarket Integration**: Access 100+ pre-built compliance profiles from Chef Supermarket (CIS benchmarks, DevSec baselines, DISA STIGs)
 - **Infrastructure as Code Testing**: Test your infrastructure configurations using InSpec's DSL
@@ -120,45 +165,163 @@ v0.2.0+ translates these InSpec resources to **native Ansible**:
 - **Multi-Format Reporting**: Generate compliance reports in JSON, HTML, JUnit formats
 - **InSpec-Free Mode**: Run converted profiles without InSpec installation
 
+## Architecture
+
+### Server Request Flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API as FastAPI Server
+    participant Storage as Storage Backend
+    participant DB as PostgreSQL (optional)
+    participant Executor as Job Executor
+    participant InSpec
+
+    Client->>API: POST /api/v1/job-templates
+    API->>Storage: Save template
+    alt Database Mode
+        Storage->>DB: INSERT job_template
+        DB-->>Storage: Success
+    else File Mode
+        Storage->>Storage: Write JSON to /data
+    end
+    Storage-->>API: Template created
+    API-->>Client: 201 Created
+
+    Client->>API: POST /job-templates/{id}/launch
+    API->>Executor: Start background job
+    Executor->>InSpec: Execute profile
+    InSpec-->>Executor: Results
+    Executor->>Storage: Save results
+    Storage-->>Executor: Saved
+    API-->>Client: Job launched
+
+    Client->>API: GET /jobs/{id}
+    API->>Storage: Fetch job
+    Storage-->>API: Job data
+    API-->>Client: 200 OK with results
+```
+
+### Storage Modes
+
+```mermaid
+graph LR
+    A[Start Server] --> B{DATABASE__URL<br/>configured?}
+    B -->|No| C[File Storage]
+    B -->|Yes| D[Database Storage]
+    C --> E[Local /data directory]
+    D --> F[PostgreSQL + Prisma]
+    E --> G[Single User Mode]
+    F --> H[Multi-User + Auth + VCS]
+```
+
 ## Quick Start
 
 ### Installation
 
 ```bash
-# Install with server features
+# Install with server features (recommended for production)
 pip install ansible-inspec
 
-# Or from source with server extras
+# Or install CLI-only mode
+pip install ansible-inspec --no-deps
+
+# Or from source with all features
 git clone https://github.com/Htunn/ansible-inspec.git
 cd ansible-inspec
-pip install -e ".[server]"
+pip install -e ".[server]"  # With server dependencies
+# OR
+pip install -e .             # CLI only
 ```
 
-### Web UI & Server (NEW!)
+### Server Setup
 
-Start the InSpec Execution Server with Web UI:
+The server can run in two modes:
+
+#### Quick Start (File Storage - No Database Required)
+
+Perfect for local development, testing, and single-user scenarios:
 
 ```bash
-# Start both Web UI (Streamlit) and API server (FastAPI)
+# Start server immediately - no database needed!
 ansible-inspec start-server
+
+# Access endpoints:
+# - REST API: http://localhost:8080
+# - API Docs: http://localhost:8080/docs
 ```
 
-This starts:
-- **📊 Web UI (Streamlit)**: http://localhost:8081
-- **🔌 REST API (FastAPI)**: http://localhost:8080
+**What you get:**
+- ✅ Job templates and execution
+- ✅ Profile management  
+- ✅ JSON storage in `/data` directory
+- ❌ No auth/multi-user (use database mode for this)
+
+#### Production Setup (Database Storage)
+
+For enterprise features with PostgreSQL:
+
+```bash
+# 1. Start PostgreSQL (Docker recommended)
+docker run -d --name ansible-inspec-postgres \
+  -e POSTGRES_USER=ansible \
+  -e POSTGRES_PASSWORD=ansible \
+  -e POSTGRES_DB=ansible_inspec \
+  -p 5432:5432 postgres:16-alpine
+
+# 2. Configure environment
+cp .env.example .env
+# Edit .env and configure:
+# - DATABASE__URL (required)
+# - ENCRYPTION_KEY (generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+# - AUTH__JWT_SECRET (for Azure AD)
+# - AUTH__ENABLED=true (optional)
+# - VCS__ENABLED=true (optional)
+
+# 3. Initialize database
+python scripts/init_prisma.py
+
+# 4. Start the server
+ansible-inspec start-server
+
+# 5. Verify
+curl http://localhost:8080/health
+curl http://localhost:8080/docs  # API documentation
+```
+
+**Server endpoints:**
+- **📊 REST API**: http://localhost:8080
 - **📚 API Docs (Swagger)**: http://localhost:8080/docs
 - **📖 API Docs (ReDoc)**: http://localhost:8080/redoc
+- **📈 Metrics**: http://localhost:8080/metrics
 
-**Features:**
-- Create and manage job templates
-- Launch compliance checks via web interface
-- Monitor job execution in real-time
-- View results and statistics
-- RESTful API for automation
+See [Server Documentation](docs/SERVER.md) and [Quick Start Guide](QUICKSTART.md) for detailed setup.
 
-See [Server Documentation](docs/SERVER.md) for detailed usage.
+### Docker Deployment
 
-### Command Line Usage
+```bash
+# Using Docker Compose (recommended)
+git clone https://github.com/Htunn/ansible-inspec.git
+cd ansible-inspec
+
+# Copy and configure environment
+cp .env.docker .env
+# Edit .env and set POSTGRES_PASSWORD, ENCRYPTION_KEY, etc.
+
+# Start services
+docker-compose up -d
+
+# Initialize database
+docker-compose exec api prisma db push
+
+# Verify
+curl http://localhost:8080/health
+```
+
+See [Docker Deployment Guide](docs/DOCKER-DEPLOYMENT.md) for production configurations.
+
+### Command Line Usage (CLI)
 
 ```bash
 # Execute a profile from Chef Supermarket
@@ -185,36 +348,35 @@ See [Docker Usage Guide](docs/DOCKER.md) for detailed Docker instructions.
 
 ## Documentation
 
-- **[Server Documentation](docs/SERVER.md)** - Web UI and REST API server guide (NEW!)
+### Server & API
+- **[Server Documentation](docs/SERVER.md)** - REST API server guide with enterprise features
+- **[Quick Start Guide](QUICKSTART.md)** - Get running in 5 minutes
+- **[Docker Deployment](docs/DOCKER-DEPLOYMENT.md)** - Production deployment guide
+
+### CLI & Usage
 - **[API Documentation](docs/API.md)** - Complete Python API and CLI reference
 - **[Quick Reference](docs/QUICK-REFERENCE.md)** - Common commands and workflows
-- **[Publishing Guide](docs/PUBLISHING-GUIDE.md)** - PyPI and Docker publishing instructions
 - **[Docker Usage](docs/DOCKER.md)** - Docker-specific usage and examples
 - **[Profile Conversion](docs/PROFILE-CONVERSION.md)** - Converting InSpec profiles to Ansible
 - **[Reporter Modes](docs/REPORTER-MODES.md)** - Native vs InSpec-free reporting
 - **[Chef Supermarket](docs/CHEF-SUPERMARKET.md)** - Accessing compliance profiles
-- **[Quick Start](docs/getting-started.md)** - Getting started guide
 
-### From Source
-
-```bash
-git clone https://github.com/htunn/ansible-inspec.git
-cd ansible-inspec
-pip install -e .
-```
-
-### Binary Installation
-
-Download the latest binary from the [releases page](https://github.com/htunn/ansible-inspec/releases).
-
-```bash
-# Linux/macOS
-curl -LO https://github.com/htunn/ansible-inspec/releases/latest/download/ansible-inspec
-chmod +x ansible-inspec
-sudo mv ansible-inspec /usr/local/bin/
-```
+### Getting Started
+- **[Getting Started Guide](docs/getting-started.md)** - Complete beginner's guide
+- **[Testing Guide](TESTING.md)** - Running tests and validation
 
 ## Usage
+
+### Server Usage
+
+See [Server Documentation](docs/SERVER.md) for complete server features including:
+- Job templates and workflow orchestration
+- Azure AD authentication
+- VCS integration
+- PostgreSQL database operations
+- API endpoints and examples
+
+### CLI Usage
 
 ### Basic Command
 

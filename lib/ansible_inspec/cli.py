@@ -505,8 +505,9 @@ GPL-3.0
             
             # Start FastAPI server in a background thread
             def run_api_server():
-                from ansible_inspec.server.api import run_server
-                run_server(host=args.host, port=args.port, data_dir=args.data_dir)
+                import uvicorn
+                from ansible_inspec.server.api import app
+                uvicorn.run(app, host=args.host, port=args.port, log_level="info")
             
             api_thread = threading.Thread(target=run_api_server, daemon=True)
             api_thread.start()
@@ -515,14 +516,11 @@ GPL-3.0
             time.sleep(2)
             
             if not args.no_ui:
-                # Start Streamlit UI
-                streamlit_app = Path(__file__).parent / 'server' / 'streamlit_app.py'
-                streamlit_port = args.port + 1  # Use next port for Streamlit
-                
+                # Note: Streamlit UI needs to be updated for new Prisma-based API with authentication
                 print(f"""
-🚀 Server started successfully!
+⚠️  Note: Streamlit UI is being updated to work with the new Prisma-based API.
+    For now, use the REST API and Swagger documentation:
 
-📊 Web UI (Streamlit):  http://{args.host}:{streamlit_port}
 🔌 REST API (FastAPI):  http://{args.host}:{args.port}
 📚 API Docs (Swagger):  http://{args.host}:{args.port}/docs
 📖 API Docs (ReDoc):    http://{args.host}:{args.port}/redoc
@@ -531,16 +529,24 @@ GPL-3.0
 
 Press Ctrl+C to stop the server
 """)
+                # Keep the main thread alive
+                try:
+                    while True:
+                        time.sleep(1)
+                except KeyboardInterrupt:
+                    pass
                 
-                # Run Streamlit in foreground
-                subprocess.run([
-                    'streamlit', 'run',
-                    str(streamlit_app),
-                    '--server.port', str(streamlit_port),
-                    '--server.address', args.host,
-                    '--server.headless', 'true',
-                    '--browser.gatherUsageStats', 'false'
-                ])
+                # TODO: Re-enable Streamlit UI after updating for Prisma API authentication
+                # streamlit_app = Path(__file__).parent / 'server' / 'streamlit_app.py'
+                # streamlit_port = args.port + 1  # Use next port for Streamlit
+                # subprocess.run([
+                #     'streamlit', 'run',
+                #     str(streamlit_app),
+                #     '--server.port', str(streamlit_port),
+                #     '--server.address', args.host,
+                #     '--server.headless', 'true',
+                #     '--browser.gatherUsageStats', 'false'
+                # ])
             else:
                 print(f"""
 🚀 API Server started successfully!

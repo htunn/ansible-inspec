@@ -1,0 +1,11 @@
+name: my-profile
+title: Example Local InSpec Profile
+maintainer: ansible-inspec
+copyright: ansible-inspec
+copyright_email: info@ansible-inspec.com
+license: Apache-2.0
+summary: Example local InSpec profile for testing
+version: 1.0.0
+supports:
+  - platform: linux
+  - platform: darwin
