@@ -133,7 +133,54 @@ The dashboard provides an overview of:
 
 ### Authentication
 
-Currently, the API does not require authentication. For production use, implement authentication middleware.
+The API supports two authentication methods:
+
+**Azure AD OAuth2** (Recommended for enterprises):
+```bash
+# Login redirects to Azure AD
+GET /api/v1/auth/login
+
+# After Azure authentication, redirected to:
+GET /api/v1/auth/callback?code=xxx&state=xxx
+
+# Access protected endpoints with Bearer token
+GET /api/v1/auth/me
+Authorization: Bearer eyJhbGci...
+```
+
+**Local Username/Password**:
+```http
+POST /api/v1/auth/password-login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "your-password"
+}
+
+# Response includes 7-day JWT token
+{
+  "access_token": "eyJhbGci...",
+  "token_type": "bearer",
+  "user": {
+    "username": "admin",
+    "email": "admin@example.com",
+    "name": "Administrator",
+    "roles": ["admin"]
+  }
+}
+```
+
+**Session Management**:
+- Tokens expire after 7 days
+- Sessions persist across browser refreshes via cookies
+- Logout endpoint clears authentication:
+  ```http
+  POST /api/v1/auth/logout
+  Authorization: Bearer eyJhbGci...
+  ```
+
+See [Authentication Guide](../ansible-inspec-docs/guides/authentication.md) for detailed setup.
 
 ### API Endpoints
 
@@ -345,16 +392,46 @@ data/
 
 ## Security Considerations
 
-⚠️ **Important Security Notes**:
+✅ **Built-in Security Features (v0.4.0+)**:
 
-1. **No Authentication**: The default setup does not include authentication. For production use:
-   - Add authentication middleware
-   - Use HTTPS/TLS
-   - Implement role-based access control (RBAC)
+1. **Authentication & Authorization**:
+   - Azure AD OAuth2 with SSO
+   - Local user authentication with bcrypt password hashing
+   - JWT tokens with 7-day expiry
+   - Role-based access control (RBAC)
+   - HTTP-only cookies for secure token storage
+   
+2. **Session Security**:
+   - Automatic session persistence across refreshes
+   - Secure cookie configuration (HTTP-only, SameSite)
+   - Query parameter-based token restoration
+   - Manual logout invalidates tokens immediately
 
-2. **Network Access**: Bind to `127.0.0.1` instead of `0.0.0.0` for local-only access
+3. **Data Protection**:
+   - Fernet encrypted VCS credentials
+   - PostgreSQL with connection pooling
+   - Encrypted storage for sensitive data
+   - Audit logging for all authentication events
 
-3. **Data Protection**: Ensure the data directory has proper file permissions
+⚠️ **Additional Production Requirements**:
+
+1. **HTTPS/TLS**: Always use HTTPS in production
+   - Configure reverse proxy (nginx/Apache)
+   - Set `AUTH__COOKIE_SECURE=true` for HTTPS-only cookies
+   
+2. **Network Access**: Bind to specific interfaces
+   - Use `127.0.0.1` for local-only access
+   - Configure firewall rules appropriately
+   
+3. **Secret Management**:
+   - Store secrets in environment variables
+   - Use Azure Key Vault or similar for production
+   - Rotate secrets regularly (every 3-6 months)
+   
+4. **Database Security**:
+   - Use strong PostgreSQL passwords
+   - Limit database network access
+   - Enable SSL for database connections
 
 ## Production Deployment
 

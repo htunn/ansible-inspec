@@ -41,6 +41,7 @@ FROM python:3.13-slim
 # Install runtime dependencies including Node.js for Prisma
 RUN apt-get update && apt-get install -y --no-install-recommends \
   openssh-client \
+  git \
   curl \
   ca-certificates \
   gnupg \

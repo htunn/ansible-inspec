@@ -12,10 +12,25 @@ import requests
 import pandas as pd
 from datetime import datetime
 import time
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Create a session object to persist cookies across requests
+if 'requests_session' not in st.session_state:
+    st.session_state['requests_session'] = requests.Session()
+
+# Check for token in query parameters (from Azure AD callback or direct link)
+if 'access_token' not in st.session_state:
+    query_params = st.query_params
+    if 'token' in query_params:
+        st.session_state['access_token'] = query_params['token']
+        # Clear the token from URL for security
+        st.query_params.clear()
 
 # Configure page
 st.set_page_config(
-    page_title="InSpec Execution Server",
+    page_title="Ansible InSpec Execution Server",
     page_icon="🔒",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -24,11 +39,138 @@ st.set_page_config(
 # API Base URL - use environment variable for Docker, fallback to localhost
 import os
 API_BASE = os.getenv("API_BASE_URL", "http://localhost:8080/api/v1")
+API_SERVER = os.getenv("API_SERVER_URL", "http://localhost:8080")
+
+# ==================== Authentication Helpers ====================
+
+def get_session():
+    """Get the requests session object with cookie persistence"""
+    if 'requests_session' not in st.session_state:
+        st.session_state['requests_session'] = requests.Session()
+    return st.session_state['requests_session']
+
+def get_auth_headers():
+    """Get authentication headers with Bearer token from session"""
+    token = st.session_state.get('access_token')
+    if token:
+        return {"Authorization": f"Bearer {token}"}
+    return {}
+
+def check_authentication():
+    """Check if user is authenticated"""
+    token = st.session_state.get('access_token')
+    if not token:
+        st.session_state.pop('authenticated', None)
+        st.session_state.pop('user_info', None)
+        return False
+    
+    # Verify token with backend
+    try:
+        response = get_session().get(
+            f"{API_BASE}/auth/me",
+            headers=get_auth_headers(),
+            timeout=5
+        )
+        if response.status_code == 200:
+            user_data = response.json()
+            st.session_state['user_info'] = user_data
+            st.session_state['authenticated'] = True
+            return True
+        else:
+            # Invalid token, clear it
+            st.session_state.pop('access_token', None)
+            st.session_state.pop('authenticated', None)
+            st.session_state.pop('user_info', None)
+            return False
+    except Exception as e:
+        logger.error(f"Authentication check failed: {e}")
+        return False
+
+def show_login_page():
+    """Display login page for unauthenticated users"""
+    st.title("🔒 Ansible InSpec Execution Server")
+    st.markdown("### Authentication Required")
+    st.info("Please log in to access the Ansible InSpec Execution Server")
+    
+    # Login method tabs
+    tab1, tab2 = st.tabs(["🔐 Azure AD", "👤 Username/Password"])
+    
+    with tab1:
+        st.markdown("#### Azure AD Single Sign-On")
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("🔐 Login with Azure AD", type="primary", use_container_width=True, key="azure_login"):
+                # Redirect to API login endpoint
+                login_url = f"{API_SERVER}/api/v1/auth/login"
+                st.markdown(f'<meta http-equiv="refresh" content="0; url={login_url}">', unsafe_allow_html=True)
+                st.info(f"Redirecting to login... If not redirected, [click here]({login_url})")
+    
+    with tab2:
+        st.markdown("#### Local Account Login")
+        with st.form("password_login_form"):
+            username = st.text_input("Username", placeholder="Enter your username")
+            password = st.text_input("Password", type="password", placeholder="Enter your password")
+            
+            submitted = st.form_submit_button("🔓 Login", type="primary", use_container_width=True)
+            
+            if submitted:
+                if not username or not password:
+                    st.error("Please enter both username and password")
+                else:
+                    # Call password login API
+                    try:
+                        response = get_session().post(
+                            f"{API_BASE}/auth/password-login",
+                            json={"username": username, "password": password}
+                        )
+                        
+                        if response.status_code == 200:
+                            data = response.json()
+                            token = data['access_token']
+                            # Redirect to self with token to ensure it persists across refreshes
+                            st.markdown(f'<meta http-equiv="refresh" content="0; url=/?token={token}">', unsafe_allow_html=True)
+                            st.success("✅ Login successful! Redirecting...")
+                        else:
+                            st.error(f"Login failed: {response.json().get('detail', 'Invalid credentials')}")
+                    except Exception as e:
+                        st.error(f"Login error: {str(e)}")
+        
+        # Trigger rerun after form submission if login was successful
+        if st.session_state.get('authenticated') and not st.session_state.get('user_info'):
+            st.rerun()
+    
+    st.markdown("---")
+    st.markdown("""
+    **Note:** After logging in, you will be redirected back to this page.
+    
+    If you encounter issues:
+    - Ensure authentication is enabled on the server
+    - Check that Azure AD is properly configured (for SSO)
+    - Contact your administrator for access
+    """)
+
+def logout():
+    """Logout by calling the logout endpoint and clearing session"""
+    try:
+        # Call logout endpoint to clear cookie
+        get_session().post(f"{API_BASE}/auth/logout", headers=get_auth_headers(), timeout=2)
+    except:
+        pass  # Ignore errors, just clear local session
+    
+    # Clear session state and create new requests session
+    st.session_state.clear()
+    st.session_state['requests_session'] = requests.Session()
+    st.rerun()
+
+# ==================== API Helper Functions ====================
 
 def get_statistics():
     """Get server statistics"""
     try:
-        response = requests.get(f"{API_BASE}/statistics/")
+        response = get_session().get(f"{API_BASE}/statistics/")
+        if response.status_code == 401:
+            logout()
+            return {}
         return response.json()
     except:
         return {}
@@ -36,7 +178,10 @@ def get_statistics():
 def get_jobs():
     """Get all jobs"""
     try:
-        response = requests.get(f"{API_BASE}/jobs/")
+        response = get_session().get(f"{API_BASE}/jobs/")
+        if response.status_code == 401:
+            logout()
+            return []
         return response.json().get('results', [])
     except:
         return []
@@ -44,7 +189,10 @@ def get_jobs():
 def get_job_templates():
     """Get all job templates"""
     try:
-        response = requests.get(f"{API_BASE}/job_templates/")
+        response = get_session().get(f"{API_BASE}/job_templates/")
+        if response.status_code == 401:
+            logout()
+            return []
         return response.json().get('results', [])
     except:
         return []
@@ -53,10 +201,14 @@ def launch_job(template_id, extra_vars=None):
     """Launch a job from template"""
     try:
         payload = {"extra_vars": extra_vars or {}}
-        response = requests.post(
+        response = get_session().post(
             f"{API_BASE}/job_templates/{template_id}/launch/",
-            json=payload
+            json=payload,
+            headers=get_auth_headers()
         )
+        if response.status_code == 401:
+            logout()
+            return False
         return response.status_code == 201
     except:
         return False
@@ -64,10 +216,14 @@ def launch_job(template_id, extra_vars=None):
 def create_job_template(template_data):
     """Create a new job template"""
     try:
-        response = requests.post(
+        response = get_session().post(
             f"{API_BASE}/job_templates/",
-            json=template_data
+            json=template_data,
+            headers=get_auth_headers()
         )
+        if response.status_code == 401:
+            logout()
+            return False
         return response.status_code == 201
     except:
         return False
@@ -75,10 +231,14 @@ def create_job_template(template_data):
 def update_job_template(template_id, template_data):
     """Update an existing job template"""
     try:
-        response = requests.put(
+        response = get_session().put(
             f"{API_BASE}/job_templates/{template_id}/",
-            json=template_data
+            json=template_data,
+            headers=get_auth_headers()
         )
+        if response.status_code == 401:
+            logout()
+            return False
         return response.status_code == 200
     except:
         return False
@@ -86,7 +246,13 @@ def update_job_template(template_id, template_data):
 def delete_job_template(template_id):
     """Delete a job template"""
     try:
-        response = requests.delete(f"{API_BASE}/job_templates/{template_id}/")
+        response = get_session().delete(
+            f"{API_BASE}/job_templates/{template_id}/",
+            headers=get_auth_headers()
+        )
+        if response.status_code == 401:
+            logout()
+            return False
         return response.status_code == 204
     except:
         return False
@@ -94,12 +260,104 @@ def delete_job_template(template_id):
 def get_job_logs(job_id, lines=100):
     """Get live job logs from files"""
     try:
-        response = requests.get(f"{API_BASE}/jobs/{job_id}/logs/", params={'lines': lines})
+        response = get_session().get(
+            f"{API_BASE}/jobs/{job_id}/logs/",
+            params={'lines': lines},
+            headers=get_auth_headers()
+        )
+        if response.status_code == 401:
+            logout()
+            return None
         if response.status_code == 200:
             return response.json()
         return None
     except:
         return None
+
+def get_vcs_repositories():
+    """Get all VCS repositories"""
+    try:
+        response = get_session().get(f"{API_BASE}/vcs/repositories/")
+        if response.status_code == 401:
+            logout()
+            return []
+        return response.json().get('results', [])
+    except:
+        return []
+
+def get_vcs_repository(repo_name):
+    """Get a specific VCS repository"""
+    try:
+        response = get_session().get(f"{API_BASE}/vcs/repositories/{repo_name}/")
+        if response.status_code == 401:
+            logout()
+            return None
+        if response.status_code == 200:
+            return response.json()
+        return None
+    except:
+        return None
+
+def create_vcs_repository(repo_data):
+    """Create a new VCS repository"""
+    try:
+        response = get_session().post(
+            f"{API_BASE}/vcs/repositories/",
+            json=repo_data,
+            headers=get_auth_headers()
+        )
+        if response.status_code == 401:
+            logout()
+            return None
+        if response.status_code == 201:
+            return response.json()
+        return None
+    except:
+        return None
+
+def sync_vcs_repository(repo_name):
+    """Trigger manual sync for a VCS repository"""
+    try:
+        response = get_session().post(
+            f"{API_BASE}/vcs/repositories/{repo_name}/sync/",
+            headers=get_auth_headers()
+        )
+        if response.status_code == 401:
+            logout()
+            return False
+        return response.status_code in [200, 202]
+    except:
+        return False
+
+def delete_vcs_repository(repo_name):
+    """Delete a VCS repository"""
+    try:
+        response = get_session().delete(
+            f"{API_BASE}/vcs/repositories/{repo_name}/",
+            headers=get_auth_headers()
+        )
+        if response.status_code == 401:
+            logout()
+            return False
+        return response.status_code == 204
+    except:
+        return False
+
+def get_vcs_sync_history(repo_name):
+    """Get sync history for a VCS repository"""
+    try:
+        response = get_session().get(
+            f"{API_BASE}/vcs/repositories/{repo_name}/history/",
+            headers=get_auth_headers()
+        )
+        if response.status_code == 401:
+            logout()
+            return []
+        if response.status_code == 200:
+            return response.json().get('results', [])
+        return []
+    except:
+        return []
 
 # Custom CSS
 st.markdown("""
@@ -128,23 +386,46 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ==================== Authentication Check ====================
+
+# Check authentication before showing any content
+# With cookie-based auth, the browser automatically sends cookies
+if not check_authentication():
+    show_login_page()
+    st.stop()
+
+# ==================== Authenticated UI ====================
+
 # Header
-st.title("🔒 InSpec Execution Server")
+st.title("🔒 Ansible InSpec Execution Server")
 st.markdown("**Web UI and REST API for ansible-inspec compliance testing**")
+
 st.markdown("---")
 
 # Sidebar
 with st.sidebar:
+    # User info
+    if 'user_info' in st.session_state:
+        user = st.session_state['user_info']
+        st.markdown(f"### 👤 {user.get('name', user.get('username', 'User'))}")
+        st.caption(f"Email: {user.get('email', 'N/A')}")
+        st.caption(f"Roles: {', '.join(user.get('roles', ['viewer']))}")
+        
+        if st.button("🚪 Logout", use_container_width=True):
+            logout()
+        
+        st.markdown("---")
+    
     st.header("Navigation")
     page = st.radio(
         "Select Page",
-        ["📊 Dashboard", "📋 Jobs", "📝 Job Templates", "➕ Create Template", "📚 API Docs"]
+        ["📊 Dashboard", "📋 Jobs", "📝 Job Templates", "➕ Create Template", "🔄 Version Control", "📚 API Docs"]
     )
     
     st.markdown("---")
     st.markdown("### Quick Links")
-    st.markdown(f"[📖 API Documentation](http://localhost:8080/docs)")
-    st.markdown(f"[📘 ReDoc](http://localhost:8080/redoc)")
+    st.markdown(f"[📖 API Documentation]({API_SERVER}/docs)")
+    st.markdown(f"[📘 ReDoc]({API_SERVER}/redoc)")
     
     # Auto-refresh toggle
     auto_refresh = st.checkbox("Auto-refresh (5s)", value=True)
@@ -259,7 +540,7 @@ elif page == "📋 Jobs":
                 # Add delete button for pending jobs
                 if job['status'] == 'pending':
                     if st.button(f"🗑️ Delete", key=f"delete_{job['id']}", type="secondary"):
-                        response = requests.delete(f"{API_BASE}/jobs/{job['id']}/")
+                        response = get_session().delete(f"{API_BASE}/jobs/{job['id']}/")
                         if response.status_code == 200:
                             st.success(f"Job {job['id'][:8]} deleted")
                             time.sleep(1)
@@ -367,7 +648,7 @@ elif page == "📝 Job Templates":
                             # Show confirmation
                             if st.button("✅", key=f"confirm_yes_{template['id']}", help="Confirm delete"):
                                 try:
-                                    response = requests.delete(f"{API_BASE}/job_templates/{template['id']}/")
+                                    response = get_session().delete(f"{API_BASE}/job_templates/{template['id']}/")
                                     if response.status_code == 204:
                                         st.success(f"Template '{template['name']}' deleted")
                                         st.session_state[delete_key] = False
@@ -501,6 +782,56 @@ elif page == "📝 Job Templates":
 # Create Template Page
 elif page == "➕ Create Template":
     st.header("Create New Job Template")
+    
+    # Add source selection at the top
+    st.subheader("Template Source")
+    template_source = st.radio(
+        "Select template source",
+        ["📁 Manual Configuration", "🔄 From VCS Repository"],
+        horizontal=True,
+        help="Choose to manually configure a template or use a profile from a VCS repository"
+    )
+    
+    if template_source == "🔄 From VCS Repository":
+        st.markdown("---")
+        st.markdown("### Select InSpec Profile from VCS")
+        
+        # Get VCS repositories
+        vcs_repos = get_vcs_repositories()
+        
+        if not vcs_repos:
+            st.warning("No VCS repositories configured. Add a repository in the 'Version Control' page first.")
+            st.stop()
+        
+        # Select repository
+        repo_names = [r['name'] for r in vcs_repos]
+        selected_repo = st.selectbox("Repository", repo_names)
+        
+        if selected_repo:
+            # Get repository details
+            repo = next((r for r in vcs_repos if r['name'] == selected_repo), None)
+            
+            if repo:
+                st.info(f"**URL:** {repo['url']}  \n**Branch:** {repo['branch']}  \n**Status:** {repo.get('sync_status', 'unknown')}")
+                
+                # Trigger sync if needed
+                col1, col2 = st.columns([3, 1])
+                with col2:
+                    if st.button("🔄 Sync Now", use_container_width=True):
+                        with st.spinner(f"Syncing {selected_repo}..."):
+                            if sync_vcs_repository(selected_repo):
+                                st.success("Repository synced!")
+                                time.sleep(1)
+                                st.rerun()
+                            else:
+                                st.error("Sync failed")
+                
+                # Show available profiles (this would need an API endpoint to list profiles)
+                st.markdown("**Available Profiles:**")
+                st.info("After syncing, profiles will be auto-created as templates. Go to 'Job Templates' to see them.")
+                
+                st.markdown("---")
+                st.markdown("### Or Create Template Manually")
     
     with st.form("create_template_form"):
         name = st.text_input("Template Name *", placeholder="My Compliance Check")
@@ -650,6 +981,267 @@ elif page == "➕ Create Template":
                 else:
                     st.error("Failed to create template. Make sure the API server is running.")
 
+# Version Control Page
+elif page == "🔄 Version Control":
+    st.header("Version Control System Integration")
+    
+    st.markdown("""
+    Manage Git repositories containing InSpec profiles and Ansible playbooks.
+    The system can automatically sync repositories and create job templates from discovered profiles.
+    """)
+    
+    # Tabs for different VCS operations
+    tab1, tab2, tab3 = st.tabs(["📋 Repositories", "➕ Add Repository", "📊 Sync History"])
+    
+    with tab1:
+        st.subheader("Configured Repositories")
+        
+        repos = get_vcs_repositories()
+        
+        if repos:
+            for repo in repos:
+                with st.expander(f"📁 {repo['name']}", expanded=False):
+                    col1, col2 = st.columns([2, 1])
+                    
+                    with col1:
+                        st.markdown(f"**URL:** `{repo['url']}`")
+                        st.markdown(f"**Branch:** `{repo.get('branch', 'main')}`")
+                        st.markdown(f"**Profile Path:** `{repo.get('profilePath', 'inspec')}`")
+                        
+                        if repo.get('lastSyncAt'):
+                            last_sync = datetime.fromisoformat(repo['lastSyncAt'])
+                            st.markdown(f"**Last Sync:** {last_sync.strftime('%Y-%m-%d %H:%M:%S')}")
+                        else:
+                            st.markdown("**Last Sync:** Never")
+                        
+                        if repo.get('syncStatus'):
+                            status = repo['syncStatus']
+                            status_color = {
+                                'success': '🟢',
+                                'failed': '🔴',
+                                'syncing': '🟡',
+                                'idle': '⚪'
+                            }.get(status, '⚪')
+                            st.markdown(f"**Status:** {status_color} {status}")
+                        
+                        poll_interval = repo.get('pollInterval', 900) // 60  # Convert seconds to minutes
+                        st.markdown(f"**Poll Interval:** {poll_interval} minutes")
+                    
+                    with col2:
+                        if st.button("🔄 Sync Now", key=f"sync_{repo['name']}", use_container_width=True):
+                            with st.spinner(f"Syncing {repo['name']}..."):
+                                if sync_vcs_repository(repo['name']):
+                                    st.success(f"✅ Sync triggered for {repo['name']}")
+                                    time.sleep(1)
+                                    st.rerun()
+                                else:
+                                    st.error(f"Failed to sync {repo['name']}")
+                        
+                        if st.button("🗑️ Delete", key=f"delete_{repo['name']}", use_container_width=True, type="secondary"):
+                            if st.session_state.get(f'confirm_delete_{repo["name"]}'):
+                                if delete_vcs_repository(repo['name']):
+                                    st.success(f"✅ Repository '{repo['name']}' deleted")
+                                    time.sleep(1)
+                                    st.rerun()
+                                else:
+                                    st.error("Failed to delete repository")
+                            else:
+                                st.session_state[f'confirm_delete_{repo["name"]}'] = True
+                                st.warning("⚠️ Click delete again to confirm")
+                                time.sleep(2)
+                                st.session_state[f'confirm_delete_{repo["name"]}'] = False
+        else:
+            st.info("No repositories configured. Add a repository in the 'Add Repository' tab.")
+    
+    with tab2:
+        st.subheader("Add New Repository")
+        
+        # Move authentication type selector OUTSIDE the form so it updates dynamically
+        st.markdown("**Authentication (optional)**")
+        auth_type = st.selectbox(
+            "Authentication Type",
+            ["none", "ssh_key", "token"],
+            help="Authentication method for private repositories",
+            key="vcs_auth_type"
+        )
+        
+        st.markdown("---")
+        
+        with st.form("vcs_repo_form"):
+            repo_name = st.text_input(
+                "Repository Name",
+                placeholder="my-inspec-profiles",
+                help="Unique name for this repository"
+            )
+            
+            repo_url = st.text_input(
+                "Repository URL",
+                placeholder="https://github.com/user/repo.git or git@github.com:user/repo.git",
+                help="Git repository URL (HTTPS or SSH)"
+            )
+            
+            vcs_type = st.selectbox(
+                "VCS Type",
+                ["github", "gitlab", "git"],
+                help="Type of version control system"
+            )
+            
+            branch = st.text_input(
+                "Branch",
+                value="main",
+                help="Git branch to track"
+            )
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                profiles_path = st.text_input(
+                    "Profiles Path (optional)",
+                    placeholder="profiles/",
+                    help="Subdirectory containing InSpec profiles"
+                )
+            
+            with col2:
+                playbooks_path = st.text_input(
+                    "Playbooks Path (optional)",
+                    placeholder="playbooks/",
+                    help="Subdirectory containing Ansible playbooks"
+                )
+            
+            poll_interval = st.number_input(
+                "Poll Interval (minutes)",
+                min_value=5,
+                max_value=1440,
+                value=15,
+                help="How often to check for updates (5-1440 minutes)"
+            )
+            
+            # Show input fields based on auth type selected above
+            ssh_key = None
+            token = None
+            
+            if auth_type == "ssh_key":
+                ssh_key = st.text_area(
+                    "SSH Private Key",
+                    placeholder="-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+                    height=150,
+                    help="SSH private key for accessing the repository",
+                    key="ssh_key_input"
+                )
+            elif auth_type == "token":
+                token = st.text_input(
+                    "Access Token",
+                    type="password",
+                    placeholder="ghp_xxxxxxxxxxxx or glpat-xxxxxxxxxxxx",
+                    help="Personal access token or API key",
+                    key="token_input"
+                )
+            
+            auto_sync = st.checkbox(
+                "Enable Auto Sync",
+                value=True,
+                help="Automatically sync on the specified poll interval"
+            )
+            
+            create_templates = st.checkbox(
+                "Auto-create Job Templates",
+                value=True,
+                help="Automatically create job templates from discovered profiles"
+            )
+            
+            submitted = st.form_submit_button("Add Repository", use_container_width=True)
+            
+            if submitted:
+                if not repo_name or not repo_url:
+                    st.error("Repository name and URL are required")
+                else:
+                    repo_data = {
+                        "name": repo_name,
+                        "url": repo_url,
+                        "vcs_type": vcs_type,
+                        "branch": branch,
+                        "profiles_path": profiles_path or None,
+                        "playbooks_path": playbooks_path or None,
+                        "poll_interval": poll_interval * 60,  # Convert to seconds
+                        "auto_sync": auto_sync,
+                        "auto_create_templates": create_templates
+                    }
+                    
+                    # Add credentials if provided
+                    if auth_type == "ssh_key" and ssh_key:
+                        repo_data["credentials"] = {
+                            "type": "ssh_key",
+                            "private_key": ssh_key
+                        }
+                    elif auth_type == "token" and token:
+                        repo_data["credentials"] = {
+                            "type": "token",
+                            "token": token
+                        }
+                    
+                    result = create_vcs_repository(repo_data)
+                    if result:
+                        st.success(f"✅ Repository '{repo_name}' added successfully!")
+                        st.info("💡 Triggering initial sync...")
+                        time.sleep(2)
+                        st.rerun()
+                    else:
+                        st.error("Failed to add repository. Check the API server logs for details.")
+    
+    with tab3:
+        st.subheader("Sync History")
+        
+        repos = get_vcs_repositories()
+        
+        if repos:
+            selected_repo = st.selectbox(
+                "Select Repository",
+                [repo['name'] for repo in repos]
+            )
+            
+            if selected_repo:
+                history = get_vcs_sync_history(selected_repo)
+                
+                if history:
+                    st.markdown(f"### Sync History for `{selected_repo}`")
+                    
+                    for sync in history[:20]:  # Show last 20 syncs
+                        status_emoji = {
+                            'success': '✅',
+                            'failed': '❌',
+                            'pending': '⏳'
+                        }.get(sync.get('status'), '❓')
+                        
+                        started = datetime.fromisoformat(sync['syncStartedAt'])
+                        
+                        with st.expander(f"{status_emoji} {started.strftime('%Y-%m-%d %H:%M:%S')} - {sync.get('status', 'unknown').upper()}"):
+                            if sync.get('syncCompletedAt'):
+                                completed = datetime.fromisoformat(sync['syncCompletedAt'])
+                                duration = (completed - started).total_seconds()
+                                st.markdown(f"**Duration:** {duration:.1f}s")
+                            
+                            if sync.get('commitHash'):
+                                st.markdown(f"**Commit:** `{sync['commitHash'][:8]}`")
+                            
+                            if sync.get('profilesDiscovered') is not None:
+                                st.markdown(f"**Profiles Discovered:** {sync['profilesDiscovered']}")
+                            
+                            if sync.get('templatesCreated') is not None:
+                                st.markdown(f"**Templates Created:** {sync['templatesCreated']}")
+                            
+                            if sync.get('triggeredBy'):
+                                st.markdown(f"**Triggered By:** {sync['triggeredBy']}")
+                            
+                            trigger_type = sync.get('triggerType', 'manual')
+                            st.markdown(f"**Trigger Type:** {trigger_type}")
+                            
+                            if sync.get('errors'):
+                                st.error(f"**Errors:** {sync['errors']}")
+                else:
+                    st.info(f"No sync history found for {selected_repo}")
+        else:
+            st.info("No repositories configured")
+
 # API Docs Page
 elif page == "📚 API Docs":
     st.header("API Documentation")
@@ -657,7 +1249,7 @@ elif page == "📚 API Docs":
     st.markdown("""
     ### REST API Endpoints
     
-    The InSpec Execution Server provides a comprehensive REST API for managing job templates and executions.
+    The Ansible InSpec Execution Server provides a comprehensive REST API for managing job templates and executions.
     
     #### Base URL
     ```
@@ -739,7 +1331,7 @@ elif page == "📚 API Docs":
         "verbosity": 1
     }
     
-    response = requests.post(
+    response = get_session().post(
         "http://localhost:8080/api/v1/job_templates/",
         json=template
     )
@@ -763,7 +1355,7 @@ elif page == "📚 API Docs":
         }
     }
     
-    response = requests.post(
+    response = get_session().post(
         "http://localhost:8080/api/v1/job_templates/",
         json=template
     )
@@ -774,7 +1366,7 @@ elif page == "📚 API Docs":
     ```python
     template_id = "..."  # Your template ID
     
-    response = requests.post(
+    response = get_session().post(
         f"http://localhost:8080/api/v1/job_templates/{template_id}/launch/",
         json={
             "extra_vars": {"override_var": "value"},

@@ -6,8 +6,10 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 from datetime import datetime, timedelta
 from typing import Dict, Optional
+from urllib.parse import urlencode
 import logging
 import httpx
+import secrets
 
 from ..config import Settings, get_settings
 
@@ -39,11 +41,80 @@ class AzureADAuth:
             self.token_endpoint = f"{self.authority}/oauth2/v2.0/token"
             self.authorize_endpoint = f"{self.authority}/oauth2/v2.0/authorize"
             
+            # JWKS caching for signature verification
+            self._jwks_cache: Optional[Dict] = None
+            self._jwks_cache_time: Optional[datetime] = None
+            self._jwks_cache_ttl = timedelta(hours=24)
+            
             logger.info(f"Azure AD authentication initialized for tenant: {self.tenant_id}")
+    
+    def get_authorization_url(self, redirect_uri: str, state: Optional[str] = None) -> str:
+        """
+        Build Azure AD authorization URL for OAuth2 flow
+        
+        Args:
+            redirect_uri: Redirect URI after authentication
+            state: Optional state parameter for CSRF protection
+            
+        Returns:
+            Authorization URL to redirect user to
+        """
+        if not self.enabled:
+            raise HTTPException(
+                status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                detail="Azure AD authentication not configured"
+            )
+        
+        params = {
+            "client_id": self.client_id,
+            "response_type": "code",
+            "redirect_uri": redirect_uri,
+            "scope": "openid profile email User.Read",
+            "state": state or secrets.token_urlsafe(32),
+            "response_mode": "query"
+        }
+        
+        auth_url = f"{self.authorize_endpoint}?{urlencode(params)}"
+        logger.debug(f"Generated authorization URL for redirect_uri: {redirect_uri}")
+        return auth_url
+    
+    async def _fetch_jwks(self) -> Dict:
+        """
+        Fetch JWKS (JSON Web Key Set) from Azure AD for token signature verification
+        
+        Returns:
+            Dict containing JWKS keys
+        """
+        # Check cache first
+        if self._jwks_cache and self._jwks_cache_time:
+            if datetime.utcnow() - self._jwks_cache_time < self._jwks_cache_ttl:
+                logger.debug("Using cached JWKS")
+                return self._jwks_cache
+        
+        # Fetch new JWKS
+        logger.info(f"Fetching JWKS from {self.jwks_uri}")
+        async with httpx.AsyncClient() as client:
+            response = await client.get(self.jwks_uri)
+            
+            if response.status_code != 200:
+                logger.error(f"Failed to fetch JWKS: {response.text}")
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Cannot verify token signature - JWKS unavailable"
+                )
+            
+            jwks = response.json()
+            
+            # Cache the JWKS
+            self._jwks_cache = jwks
+            self._jwks_cache_time = datetime.utcnow()
+            logger.debug(f"Cached JWKS with {len(jwks.get('keys', []))} keys")
+            
+            return jwks
     
     async def validate_token(self, token: str) -> Dict:
         """
-        Validate Azure AD token and extract claims
+        Validate Azure AD token with JWKS signature verification and extract claims
         
         Args:
             token: JWT access token from Azure AD
@@ -55,46 +126,61 @@ class AzureADAuth:
             HTTPException: If token is invalid
         """
         try:
-            # Decode without verification first to check issuer
-            unverified = jwt.decode(
-                token,
-                options={"verify_signature": False}
-            )
+            # Decode header to get key ID
+            unverified_header = jwt.get_unverified_header(token)
+            kid = unverified_header.get("kid")
             
-            # Verify issuer
+            if not kid:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Token missing key ID (kid)"
+                )
+            
+            # Fetch JWKS and find the matching key
+            jwks = await self._fetch_jwks()
+            signing_key = None
+            
+            for key in jwks.get("keys", []):
+                if key.get("kid") == kid:
+                    signing_key = key
+                    break
+            
+            if not signing_key:
+                logger.error(f"No matching key found for kid: {kid}")
+                # Invalidate cache and retry once
+                self._jwks_cache = None
+                jwks = await self._fetch_jwks()
+                for key in jwks.get("keys", []):
+                    if key.get("kid") == kid:
+                        signing_key = key
+                        break
+                
+                if not signing_key:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Token signed with unknown key"
+                    )
+            
+            # Verify token signature and decode
             expected_issuer = f"{self.authority}/v2.0"
-            if unverified.get("iss") != expected_issuer:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid token issuer"
-                )
             
-            # In production, fetch and cache JWKS for signature verification
-            # For now, we'll do basic validation
-            
-            # Verify audience
-            if self.client_id not in unverified.get("aud", ""):
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid token audience"
-                )
-            
-            # Check expiration
-            exp = unverified.get("exp")
-            if exp and datetime.fromtimestamp(exp) < datetime.utcnow():
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Token expired"
-                )
+            payload = jwt.decode(
+                token,
+                signing_key,
+                algorithms=["RS256"],
+                audience=self.client_id,
+                issuer=expected_issuer,
+                options={"verify_signature": True, "verify_aud": True, "verify_iss": True}
+            )
             
             # Extract user information
             return {
-                "user_id": unverified.get("oid"),  # Object ID
-                "username": unverified.get("preferred_username") or unverified.get("upn"),
-                "email": unverified.get("email") or unverified.get("preferred_username"),
-                "name": unverified.get("name"),
-                "roles": unverified.get("roles", []),
-                "tenant_id": unverified.get("tid")
+                "user_id": payload.get("oid"),  # Object ID
+                "username": payload.get("preferred_username") or payload.get("upn"),
+                "email": payload.get("email") or payload.get("preferred_username"),
+                "name": payload.get("name"),
+                "roles": payload.get("roles", []),
+                "tenant_id": payload.get("tid")
             }
             
         except JWTError as e:
@@ -102,6 +188,12 @@ class AzureADAuth:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=f"Invalid token: {str(e)}"
+            )
+        except Exception as e:
+            logger.error(f"Token validation error: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token validation failed"
             )
     
     async def exchange_code_for_token(self, code: str, redirect_uri: str) -> Dict:

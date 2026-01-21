@@ -1,7 +1,7 @@
 """
 FastAPI authentication dependencies for ansible-inspec server.
 """
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Dict, Optional
 import logging
@@ -18,6 +18,7 @@ security = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     auth_service: AzureADAuth = Depends(get_azure_ad_auth),
     settings: Settings = Depends(get_settings)
@@ -25,7 +26,12 @@ async def get_current_user(
     """
     FastAPI dependency to get current authenticated user
     
+    Checks for token in:
+    1. Authorization header (Bearer token)
+    2. HTTP-only cookie
+    
     Args:
+        request: FastAPI request object
         credentials: HTTP Bearer credentials
         auth_service: Azure AD auth service
         settings: Application settings
@@ -46,17 +52,26 @@ async def get_current_user(
             "roles": ["admin"]  # Full access when auth disabled
         }
     
-    # Require credentials when auth is enabled
-    if not credentials:
+    # Try to get token from Authorization header first
+    token = None
+    if credentials:
+        token = credentials.credentials
+    
+    # If no token in header, check cookie
+    if not token:
+        token = request.cookies.get(settings.auth.cookie_name)
+    
+    # Require token when auth is enabled
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # Validate token
+    # Verify internal JWT session token
     try:
-        user_info = await auth_service.validate_token(credentials.credentials)
+        user_info = auth_service.verify_jwt_token(token)
         logger.debug(f"Authenticated user: {user_info.get('username')}")
         return user_info
     except HTTPException:

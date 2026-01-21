@@ -28,8 +28,10 @@ Ansible-InSpec provides **true InSpec-to-Ansible migration**, giving you:
 #### 🔐 **Enterprise Security (NEW in v0.4.0)**
 - **🔑 Azure AD OAuth2**: Enterprise SSO with role-based access control
 - **🔒 Encrypted Credentials**: Fernet symmetric encryption for VCS credentials
-- **👥 Multi-User Support**: User authentication and authorization
+- **👥 Multi-User Support**: User authentication and authorization with local accounts
 - **📊 Audit Logging**: Track who performed what actions
+- **🔐 Session Persistence**: 7-day token expiry with automatic session restoration
+- **🍪 Secure Cookies**: HTTP-only cookies with configurable security settings
 
 #### 💾 **Production-Ready Storage (NEW in v0.4.0)**
 - **🗄️ PostgreSQL Database**: Scalable database backend with connection pooling
@@ -129,9 +131,12 @@ v0.2.0+ translates these InSpec resources to **native Ansible**:
 
 - **🔐 Enterprise Security**
   - Azure AD OAuth2 authentication with SSO
+  - Local user authentication with secure password hashing
+  - 7-day session persistence with automatic token restoration
   - Role-based access control (RBAC)
   - Fernet encrypted credential storage
   - Multi-user support with audit logging
+  - HTTP-only cookies with configurable security settings
   
 - **💾 Production Database**
   - PostgreSQL backend with connection pooling

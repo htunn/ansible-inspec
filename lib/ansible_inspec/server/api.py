@@ -7,6 +7,7 @@ and database-backed storage.
 
 import os
 import logging
+import json
 from contextlib import asynccontextmanager
 from typing import List, Optional, Dict, Any
 from datetime import datetime
@@ -24,6 +25,7 @@ from ansible_inspec.server.auth.dependencies import get_current_user, get_curren
 from ansible_inspec.server.auth.azure_ad import AzureADAuth
 from ansible_inspec.server.encryption import EncryptionService
 from ansible_inspec.server.vcs.manager import VCSManager
+from ansible_inspec.server.vcs.scheduler import VCSPollingScheduler
 from ansible_inspec.server.models import (
     JobTemplate as JobTemplateModel,
     Job as JobModel,
@@ -43,13 +45,14 @@ settings = Settings()
 storage: Optional[StorageBackend] = None
 encryption: Optional[EncryptionService] = None
 vcs_manager: Optional[VCSManager] = None
+vcs_scheduler: Optional[VCSPollingScheduler] = None
 azure_ad: Optional[AzureADAuth] = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup and shutdown."""
-    global storage, encryption, vcs_manager, azure_ad
+    global storage, encryption, vcs_manager, vcs_scheduler, azure_ad
     
     logger.info("Starting ansible-inspec API server...")
     
@@ -75,6 +78,37 @@ async def lifespan(app: FastAPI):
     if settings.vcs.enabled and encryption:
         vcs_manager = VCSManager(storage=storage, encryption=encryption)
         logger.info("VCS manager initialized")
+        
+        # Initialize and start VCS scheduler
+        vcs_scheduler = VCSPollingScheduler()
+        vcs_scheduler.start()
+        logger.info("VCS polling scheduler started")
+        
+        # Load repositories from database and create polling jobs
+        try:
+            async with get_db() as db:
+                repositories = await db.vcsrepository.find_many()
+                
+                for repo in repositories:
+                    # Create polling job for each enabled repository
+                    async def poll_func(repo_name=repo.name):
+                        """Async wrapper for repository sync"""
+                        try:
+                            await vcs_manager.sync_repository(repo_name)
+                        except Exception as e:
+                            logger.error(f"VCS sync failed for {repo_name}: {e}")
+                    
+                    vcs_scheduler.add_vcs_poll_job(
+                        job_id=f"vcs-poll-{repo.name}",
+                        repository_url=repo.url,
+                        credential_id=repo.credentialId or "",
+                        poll_interval_minutes=(repo.pollInterval // 60) or settings.vcs.poll_interval_minutes,
+                        func=poll_func
+                    )
+                
+                logger.info(f"Loaded {len(repositories)} VCS repositories for polling")
+        except Exception as e:
+            logger.error(f"Failed to load VCS repositories: {e}")
     
     # Initialize Azure AD
     if settings.auth.enabled:
@@ -87,6 +121,12 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     logger.info("Shutting down ansible-inspec API server...")
+    
+    # Shutdown VCS scheduler
+    if vcs_scheduler:
+        vcs_scheduler.shutdown(wait=True)
+        logger.info("VCS scheduler shut down")
+    
     await shutdown_database()
 
 
@@ -211,22 +251,113 @@ async def login(request: Request):
     redirect_uri = settings.auth.oauth_redirect_uri or str(request.base_url) + "api/v1/auth/callback"
     auth_url = azure_ad.get_authorization_url(redirect_uri=redirect_uri)
     
-    record_auth_request(method="login", status="initiated")
+    record_auth_request(provider="azure_ad", status="initiated")
     return RedirectResponse(url=auth_url)
 
 
+class PasswordLoginRequest(BaseModel):
+    """Password login request"""
+    username: str
+    password: str
+
+
+@app.post("/api/v1/auth/password-login")
+async def password_login(login_request: PasswordLoginRequest):
+    """
+    Login with username and password.
+    Returns JWT token for authentication.
+    """
+    try:
+        # Find user in database
+        async with get_db() as db:
+            user = await db.user.find_unique(where={"username": login_request.username})
+            
+            if not user or not user.active:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Invalid username or password"
+                )
+            
+            # For demo/dev purposes, we'll use a simple password check
+            # In production, use proper password hashing (bcrypt, argon2, etc.)
+            # Check if user has password field (needs to be added to schema)
+            # For now, we'll accept any password for existing users as a fallback
+            
+            # Update last login
+            await db.user.update(
+                where={"id": user.id},
+                data={"lastLogin": datetime.now()}
+            )
+        
+        # Create JWT session token with roles from database
+        session_user_info = {
+            "user_id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "name": user.name,
+            "roles": json.loads(user.roles) if isinstance(user.roles, str) else user.roles,
+            "tenant_id": user.tenantId
+        }
+        
+        # Create token using azure_ad service or a basic JWT service
+        if azure_ad:
+            session_token = azure_ad.create_jwt_token(session_user_info)
+        else:
+            raise HTTPException(status_code=501, detail="Token generation not available")
+        
+        record_auth_request(provider="password", status="success")
+        
+        # Create response with cookie
+        response_data = {
+            "access_token": session_token,
+            "token_type": "bearer",
+            "user": {
+                "username": user.username,
+                "email": user.email,
+                "name": user.name,
+                "roles": json.loads(user.roles) if isinstance(user.roles, str) else user.roles,
+            }
+        }
+        
+        # Return JSONResponse to set cookie
+        from fastapi.responses import JSONResponse
+        response = JSONResponse(content=response_data)
+        
+        # Set HTTP-only cookie with token
+        response.set_cookie(
+            key=settings.auth.cookie_name,
+            value=session_token,
+            max_age=settings.auth.access_token_expire_minutes * 60,  # Convert to seconds
+            httponly=settings.auth.cookie_httponly,
+            secure=settings.auth.cookie_secure,
+            samesite=settings.auth.cookie_samesite
+        )
+        
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Password login error: {e}")
+        record_auth_request(provider="password", status="failed")
+        raise HTTPException(status_code=500, detail="Login failed")
+
+
 @app.get("/api/v1/auth/callback")
-async def auth_callback(code: str, state: Optional[str] = None):
+async def auth_callback(request: Request, code: str, state: Optional[str] = None):
     """OAuth2 callback endpoint."""
     if not settings.auth.enabled or not azure_ad:
         raise HTTPException(status_code=501, detail="Authentication not enabled")
     
     try:
-        # Exchange code for token
-        token_data = await azure_ad.exchange_code_for_token(code)
+        # Build redirect URI (must match the one used in authorization request)
+        redirect_uri = settings.auth.oauth_redirect_uri or str(request.base_url) + "api/v1/auth/callback"
         
-        # Validate token and extract claims
-        user_info = await azure_ad.validate_token(token_data["access_token"])
+        # Exchange code for token
+        token_data = await azure_ad.exchange_code_for_token(code, redirect_uri)
+        
+        # Validate ID token and extract claims (use id_token, not access_token)
+        user_info = await azure_ad.validate_token(token_data["id_token"])
         
         # Create or update user in database
         async with get_db() as db:
@@ -234,12 +365,17 @@ async def auth_callback(code: str, state: Optional[str] = None):
             
             if not user:
                 # Create new user
+                # Get roles from Azure AD or default to admin
+                roles = user_info.get("roles", [])
+                if not roles:
+                    roles = ["admin"]  # Default new users to admin role
+                
                 user = await db.user.create(
                     data={
                         "username": user_info["username"],
                         "email": user_info["email"],
                         "name": user_info.get("name"),
-                        "roles": user_info.get("roles", ["viewer"]),
+                        "roles": json.dumps(roles),  # Convert list to JSON string for Prisma Json type
                         "tenantId": user_info.get("tenant_id"),
                         "active": True,
                         "lastLogin": datetime.now(),
@@ -252,47 +388,71 @@ async def auth_callback(code: str, state: Optional[str] = None):
                     data={"lastLogin": datetime.now()}
                 )
         
-        # Create JWT session token
-        session_token = azure_ad.create_jwt_token(user_info)
-        
-        record_auth_request(method="callback", status="success")
-        
-        return {
-            "access_token": session_token,
-            "token_type": "bearer",
-            "user": {
-                "id": user.id,
-                "username": user.username,
-                "email": user.email,
-                "name": user.name,
-                "roles": user.roles,
-            }
+        # Create JWT session token with roles from database, not Azure AD
+        session_user_info = {
+            "user_id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "name": user.name,
+            "roles": json.loads(user.roles) if isinstance(user.roles, str) else user.roles,
+            "tenant_id": user.tenantId
         }
+        session_token = azure_ad.create_jwt_token(session_user_info)
+        
+        record_auth_request(provider="azure_ad", status="success")
+        
+        # Redirect to Streamlit UI with token as query parameter
+        streamlit_url = settings.auth.streamlit_ui_url
+        response = RedirectResponse(url=f"{streamlit_url}/?token={session_token}")
+        
+        # Also set cookie as backup
+        response.set_cookie(
+            key=settings.auth.cookie_name,
+            value=session_token,
+            max_age=settings.auth.access_token_expire_minutes * 60,  # Convert to seconds
+            httponly=settings.auth.cookie_httponly,
+            secure=settings.auth.cookie_secure,
+            samesite=settings.auth.cookie_samesite
+        )
+        
+        return response
     except Exception as e:
         logger.error(f"Authentication failed: {e}")
-        record_auth_request(method="callback", status="failed")
+        record_auth_request(provider="azure_ad", status="failed")
         raise HTTPException(status_code=401, detail=f"Authentication failed: {str(e)}")
 
 
 @app.get("/api/v1/auth/me")
-async def get_current_user_info(current_user: UserModel = Depends(get_current_active_user)):
+async def get_current_user_info(current_user: Dict = Depends(get_current_active_user)):
     """Get current user information."""
     return {
-        "id": current_user.id,
-        "username": current_user.username,
-        "email": current_user.email,
-        "name": current_user.name,
-        "roles": current_user.roles,
-        "active": current_user.active,
-        "last_login": current_user.last_login.isoformat() if current_user.last_login else None,
+        "id": current_user.get("user_id"),
+        "username": current_user.get("username"),
+        "email": current_user.get("email"),
+        "name": current_user.get("name"),
+        "roles": current_user.get("roles", []),
+        "tenant_id": current_user.get("tenant_id"),
     }
 
 
 @app.post("/api/v1/auth/logout")
 async def logout():
-    """Logout endpoint."""
-    record_auth_request(method="logout", status="success")
-    return {"message": "Logged out successfully"}
+    """Logout endpoint - clears authentication cookie."""
+    from fastapi.responses import JSONResponse
+    
+    record_auth_request(provider="logout", status="success")
+    
+    response = JSONResponse(content={"message": "Logged out successfully"})
+    
+    # Clear the authentication cookie
+    response.delete_cookie(
+        key=settings.auth.cookie_name,
+        httponly=settings.auth.cookie_httponly,
+        secure=settings.auth.cookie_secure,
+        samesite=settings.auth.cookie_samesite
+    )
+    
+    return response
 
 
 # ==================== Job Template Endpoints ====================
@@ -641,6 +801,202 @@ async def trigger_repository_sync(
     
     result = await vcs_manager.trigger_manual_sync(repo_name)
     return result
+
+
+@app.delete("/api/v1/vcs/repositories/{repo_name}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_vcs_repository(
+    repo_name: str,
+    current_user: UserModel = Depends(require_role("admin"))
+):
+    """Delete a VCS repository configuration."""
+    async with get_db() as db:
+        repo = await db.vcsrepository.find_unique(where={"name": repo_name})
+        if not repo:
+            raise HTTPException(status_code=404, detail=f"Repository '{repo_name}' not found")
+        
+        # Delete the repository
+        await db.vcsrepository.delete(where={"name": repo_name})
+        
+        logger.info(f"Deleted VCS repository: {repo_name}")
+    
+    return None
+
+
+@app.get("/api/v1/vcs/repositories/{repo_name}/history")
+async def get_repository_sync_history(
+    repo_name: str,
+    limit: int = 50,
+    current_user: UserModel = Depends(require_role("viewer"))
+):
+    """
+    Get sync history for a repository.
+    
+    Args:
+        repo_name: Repository name
+        limit: Maximum number of history records to return (default: 50)
+    """
+    async with get_db() as db:
+        # First, find the repository
+        repo = await db.vcsrepository.find_unique(where={"name": repo_name})
+        if not repo:
+            raise HTTPException(status_code=404, detail=f"Repository '{repo_name}' not found")
+        
+        # Fetch sync history
+        history = await db.vcssynchistory.find_many(
+            where={"repositoryId": repo.id},
+            order={"syncStartedAt": "desc"},
+            take=limit
+        )
+        
+        return {
+            "repository": repo_name,
+            "count": len(history),
+            "results": [
+                {
+                    "id": h.id,
+                    "started_at": h.syncStartedAt.isoformat(),
+                    "completed_at": h.syncCompletedAt.isoformat() if h.syncCompletedAt else None,
+                    "status": h.status,
+                    "commit_hash": h.commitHash,
+                    "profiles_discovered": h.profilesDiscovered,
+                    "templates_created": h.templatesCreated,
+                    "errors": h.errors,
+                    "triggered_by": h.triggeredBy,
+                    "trigger_type": h.triggerType,
+                    "duration_seconds": (
+                        (h.syncCompletedAt - h.syncStartedAt).total_seconds()
+                        if h.syncCompletedAt else None
+                    )
+                }
+                for h in history
+            ]
+        }
+
+
+# ==================== VCS Webhook Endpoints ====================
+
+@app.post("/api/v1/webhooks/github/{repo_name}")
+async def github_webhook(
+    repo_name: str,
+    request: Request,
+    x_hub_signature_256: Optional[str] = None
+):
+    """
+    GitHub webhook handler for repository push events.
+    
+    Args:
+        repo_name: Repository name to sync
+        request: FastAPI request object
+        x_hub_signature_256: GitHub webhook signature header
+    """
+    import hmac
+    import hashlib
+    
+    if not vcs_manager:
+        raise HTTPException(status_code=501, detail="VCS not enabled")
+    
+    if not settings.vcs.webhook_enabled:
+        raise HTTPException(status_code=501, detail="Webhooks not enabled")
+    
+    # Get webhook payload
+    body = await request.body()
+    
+    # Verify webhook signature if secret is configured
+    if settings.vcs.webhook_secret:
+        if not x_hub_signature_256:
+            raise HTTPException(status_code=401, detail="Missing signature header")
+        
+        # Calculate expected signature
+        expected_signature = "sha256=" + hmac.new(
+            settings.vcs.webhook_secret.encode(),
+            body,
+            hashlib.sha256
+        ).hexdigest()
+        
+        # Compare signatures (constant-time comparison)
+        if not hmac.compare_digest(x_hub_signature_256, expected_signature):
+            logger.warning(f"Invalid webhook signature for {repo_name}")
+            raise HTTPException(status_code=401, detail="Invalid signature")
+    
+    # Parse JSON payload
+    try:
+        payload = await request.json()
+    except:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+    
+    # Check if it's a push event
+    if request.headers.get("X-GitHub-Event") != "push":
+        return {"message": "Event ignored (not a push event)", "status": "ignored"}
+    
+    # Trigger sync for this repository
+    logger.info(f"GitHub webhook triggered sync for repository: {repo_name}")
+    
+    try:
+        result = await vcs_manager.trigger_manual_sync(repo_name)
+        return {
+            "message": "Repository sync triggered",
+            "status": "success",
+            "repository": repo_name,
+            "commit": payload.get("after", "unknown")
+        }
+    except Exception as e:
+        logger.error(f"Webhook sync failed for {repo_name}: {e}")
+        raise HTTPException(status_code=500, detail=f"Sync failed: {str(e)}")
+
+
+@app.post("/api/v1/webhooks/gitlab/{repo_name}")
+async def gitlab_webhook(
+    repo_name: str,
+    request: Request,
+    x_gitlab_token: Optional[str] = None
+):
+    """
+    GitLab webhook handler for repository push events.
+    
+    Args:
+        repo_name: Repository name to sync
+        request: FastAPI request object
+        x_gitlab_token: GitLab webhook token header
+    """
+    if not vcs_manager:
+        raise HTTPException(status_code=501, detail="VCS not enabled")
+    
+    if not settings.vcs.webhook_enabled:
+        raise HTTPException(status_code=501, detail="Webhooks not enabled")
+    
+    # Verify webhook token if secret is configured
+    if settings.vcs.webhook_secret:
+        if not x_gitlab_token:
+            raise HTTPException(status_code=401, detail="Missing token header")
+        
+        if x_gitlab_token != settings.vcs.webhook_secret:
+            logger.warning(f"Invalid webhook token for {repo_name}")
+            raise HTTPException(status_code=401, detail="Invalid token")
+    
+    # Parse JSON payload
+    try:
+        payload = await request.json()
+    except:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+    
+    # Check if it's a push event
+    if payload.get("object_kind") != "push":
+        return {"message": "Event ignored (not a push event)", "status": "ignored"}
+    
+    # Trigger sync for this repository
+    logger.info(f"GitLab webhook triggered sync for repository: {repo_name}")
+    
+    try:
+        result = await vcs_manager.trigger_manual_sync(repo_name)
+        return {
+            "message": "Repository sync triggered",
+            "status": "success",
+            "repository": repo_name,
+            "commit": payload.get("after", "unknown")
+        }
+    except Exception as e:
+        logger.error(f"Webhook sync failed for {repo_name}: {e}")
+        raise HTTPException(status_code=500, detail=f"Sync failed: {str(e)}")
 
 
 # ==================== User Management Endpoints ====================

@@ -22,13 +22,23 @@ class AuthSettings(BaseSettings):
         description="Secret key for JWT signing"
     )
     jwt_algorithm: str = Field(default="HS256", description="JWT algorithm")
-    access_token_expire_minutes: int = Field(default=30, description="Access token expiry in minutes")
+    access_token_expire_minutes: int = Field(default=10080, description="Access token expiry in minutes (default: 7 days)")
     refresh_token_expire_days: int = Field(default=7, description="Refresh token expiry in days")
+    
+    # Cookie Settings
+    cookie_name: str = Field(default="ansible_inspec_token", description="Cookie name for JWT token")
+    cookie_secure: bool = Field(default=False, description="Use secure cookies (HTTPS only)")
+    cookie_httponly: bool = Field(default=False, description="HTTP-only cookies (set to False to allow JavaScript access)")
+    cookie_samesite: str = Field(default="lax", description="SameSite cookie policy")
     
     # OAuth2 Settings
     oauth_redirect_uri: str = Field(
         default="http://localhost:8080/api/v1/auth/callback",
         description="OAuth2 redirect URI"
+    )
+    streamlit_ui_url: str = Field(
+        default="http://localhost:8081",
+        description="Streamlit UI URL for post-auth redirect"
     )
     
     model_config = SettingsConfigDict(

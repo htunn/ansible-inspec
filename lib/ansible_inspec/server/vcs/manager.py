@@ -7,6 +7,7 @@ creation from synchronized repositories.
 
 import logging
 import os
+from pathlib import Path
 from typing import List, Optional
 from datetime import datetime
 import yaml
@@ -44,7 +45,7 @@ class VCSManager:
         """
         self.storage = storage
         self.encryption = encryption
-        self.work_dir = work_dir
+        self.work_dir = Path(work_dir)
         os.makedirs(work_dir, exist_ok=True)
         logger.info(f"VCS Manager initialized with work_dir: {work_dir}")
 
@@ -82,7 +83,7 @@ class VCSManager:
                 )
                 
                 # Check for changes
-                git_client = GitClient(work_dir=self.work_dir)
+                git_client = GitClient(clone_dir=self.work_dir)
                 changed = await self._check_repository_changes(repo, git_client)
                 
                 if not changed and repo.lastSyncAt:
@@ -149,7 +150,7 @@ class VCSManager:
         
         # Record metrics
         duration = (datetime.now() - start_time).total_seconds()
-        record_vcs_sync(status=status, duration=duration)
+        record_vcs_sync(repository=repo_name, status=status, duration=duration)
         
         return {
             "status": status,
@@ -192,7 +193,6 @@ class VCSManager:
             # Check remote HEAD
             remote_hash = await git_client.check_remote_head(
                 repo.url,
-                branch=repo.branch,
                 credential=credential
             )
             
@@ -235,13 +235,18 @@ class VCSManager:
             credential = credential_data
         
         # Clone or pull
-        repo_path = await git_client.clone_or_pull(
+        local_path = self.work_dir / repo.name
+        success = await git_client.clone_or_pull(
             repo.url,
+            local_path=local_path,
             branch=repo.branch,
             credential=credential
         )
         
-        return repo_path
+        if not success:
+            raise Exception(f"Failed to clone/pull repository: {repo.url}")
+        
+        return str(local_path)
 
     async def _find_inspec_profiles(self, repo_path: str, profile_path: str) -> List[dict]:
         """
@@ -254,8 +259,8 @@ class VCSManager:
         Returns:
             List of profile info dicts
         """
-        git_client = GitClient(work_dir=self.work_dir)
-        profiles = await git_client.find_inspec_profiles(repo_path)
+        git_client = GitClient(clone_dir=self.work_dir)
+        profiles = git_client.find_inspec_profiles(repo_path)
         
         # Filter by profile_path if specified
         if profile_path and profile_path != ".":

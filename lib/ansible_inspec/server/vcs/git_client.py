@@ -14,8 +14,14 @@ logger = logging.getLogger(__name__)
 class GitClient:
     """Git client for repository operations"""
     
-    def __init__(self):
-        """Initialize Git client"""
+    def __init__(self, clone_dir: Optional[str] = None):
+        """
+        Initialize Git client
+        
+        Args:
+            clone_dir: Directory for cloning repositories (optional)
+        """
+        self.clone_dir = Path(clone_dir) if clone_dir else Path(tempfile.gettempdir()) / "vcs_repos"
         self.temp_dirs = []
     
     async def check_remote_head(self, url: str, credential = None) -> Optional[str]:
@@ -49,6 +55,9 @@ class GitClient:
                     if url.startswith('https://'):
                         # Inject token into URL
                         url = url.replace('https://', f'https://{credential.token}@')
+            elif url.startswith('git@') or url.startswith('ssh://'):
+                # For SSH URLs without credentials, still disable host key checking
+                env['GIT_SSH_COMMAND'] = 'ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
             
             # Check remote HEAD
             result = subprocess.run(
@@ -113,6 +122,9 @@ class GitClient:
                 elif credential.token:
                     if url.startswith('https://'):
                         url = url.replace('https://', f'https://{credential.token}@')
+            elif url.startswith('git@') or url.startswith('ssh://'):
+                # For SSH URLs without credentials, still disable host key checking
+                env['GIT_SSH_COMMAND'] = 'ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
             
             if not local_path.exists():
                 # Clone repository
@@ -158,21 +170,28 @@ class GitClient:
         finally:
             self._cleanup()
     
-    def find_inspec_profiles(self, repo_path: Path) -> list:
+    def find_inspec_profiles(self, repo_path) -> list:
         """
         Find InSpec profiles in repository
         
         Args:
-            repo_path: Repository local path
+            repo_path: Repository local path (str or Path)
             
         Returns:
-            List of profile paths (containing inspec.yml)
+            List of profile info dicts with 'path' and 'name'
         """
         profiles = []
         try:
+            # Convert to Path if string
+            if isinstance(repo_path, str):
+                repo_path = Path(repo_path)
+            
             for inspec_file in repo_path.rglob('inspec.yml'):
                 profile_dir = inspec_file.parent
-                profiles.append(profile_dir)
+                profiles.append({
+                    "path": str(profile_dir),
+                    "name": profile_dir.name
+                })
                 logger.debug(f"Found InSpec profile: {profile_dir}")
         except Exception as e:
             logger.error(f"Error finding InSpec profiles: {e}")

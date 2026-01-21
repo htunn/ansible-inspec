@@ -176,14 +176,40 @@ model VCSRepository {
   tenantId       String?   @map("tenant_id")
 
   // Relations
-  credential   VCSCredential? @relation(fields: [credentialId], references: [id])
+  credential   VCSCredential?   @relation(fields: [credentialId], references: [id])
   jobTemplates JobTemplate[]
+  syncHistory  VCSSyncHistory[]
 
   @@index([name])
   @@index([credentialId])
   @@index([lastSyncAt])
   @@index([tenantId])
   @@map("vcs_repositories")
+}
+
+// VCS Sync History model for tracking repository synchronization events
+model VCSSyncHistory {
+  id                 String    @id @default(uuid())
+  repositoryId       String    @map("repository_id")
+  syncStartedAt      DateTime  @default(now()) @map("sync_started_at")
+  syncCompletedAt    DateTime? @map("sync_completed_at")
+  status             String    @default("running") // running, success, failed
+  commitHash         String?   @map("commit_hash")
+  profilesDiscovered Int       @default(0) @map("profiles_discovered")
+  templatesCreated   Int       @default(0) @map("templates_created")
+  errors             String?   @db.Text
+  triggeredBy        String?   @map("triggered_by") // user_id or "scheduler" or "webhook"
+  triggerType        String    @default("manual") @map("trigger_type") // manual, scheduled, webhook
+  tenantId           String?   @map("tenant_id")
+
+  // Relations
+  repository VCSRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@index([repositoryId])
+  @@index([syncStartedAt])
+  @@index([status])
+  @@index([tenantId])
+  @@map("vcs_sync_history")
 }
 
 // Audit Log model for tracking user actions
