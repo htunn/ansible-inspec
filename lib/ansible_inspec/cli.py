@@ -516,37 +516,36 @@ GPL-3.0
             time.sleep(2)
             
             if not args.no_ui:
-                # Note: Streamlit UI needs to be updated for new Prisma-based API with authentication
+                # Start Streamlit UI
+                streamlit_app = Path(__file__).parent / 'server' / 'streamlit_app.py'
+                streamlit_port = args.port + 1  # Use next port for Streamlit
+                
                 print(f"""
-⚠️  Note: Streamlit UI is being updated to work with the new Prisma-based API.
-    For now, use the REST API and Swagger documentation:
-
 🔌 REST API (FastAPI):  http://{args.host}:{args.port}
 📚 API Docs (Swagger):  http://{args.host}:{args.port}/docs
 📖 API Docs (ReDoc):    http://{args.host}:{args.port}/redoc
+
+🖥️  Web UI (Streamlit):  http://{args.host}:{streamlit_port}
 
 💾 Data directory: {args.data_dir}
 
 Press Ctrl+C to stop the server
 """)
-                # Keep the main thread alive
-                try:
-                    while True:
-                        time.sleep(1)
-                except KeyboardInterrupt:
-                    pass
                 
-                # TODO: Re-enable Streamlit UI after updating for Prisma API authentication
-                # streamlit_app = Path(__file__).parent / 'server' / 'streamlit_app.py'
-                # streamlit_port = args.port + 1  # Use next port for Streamlit
-                # subprocess.run([
-                #     'streamlit', 'run',
-                #     str(streamlit_app),
-                #     '--server.port', str(streamlit_port),
-                #     '--server.address', args.host,
-                #     '--server.headless', 'true',
-                #     '--browser.gatherUsageStats', 'false'
-                # ])
+                # Set environment variables for Streamlit to connect to API
+                import os
+                os.environ['API_BASE_URL'] = f'http://{args.host}:{args.port}/api/v1'
+                os.environ['API_SERVER_URL'] = f'http://{args.host}:{args.port}'
+                
+                # Run Streamlit in the foreground
+                subprocess.run([
+                    'streamlit', 'run',
+                    str(streamlit_app),
+                    '--server.port', str(streamlit_port),
+                    '--server.address', args.host,
+                    '--server.headless', 'true',
+                    '--browser.gatherUsageStats', 'false'
+                ])
             else:
                 print(f"""
 🚀 API Server started successfully!

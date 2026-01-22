@@ -40,6 +40,29 @@ st.set_page_config(
 import os
 API_BASE = os.getenv("API_BASE_URL", "http://localhost:8080/api/v1")
 API_SERVER = os.getenv("API_SERVER_URL", "http://localhost:8080")
+# Extract base server URL from API_BASE for health checks
+API_SERVER_BASE = API_BASE.rsplit('/api/v1', 1)[0] if '/api/v1' in API_BASE else API_BASE
+
+# ==================== Server Mode Detection ====================
+
+def check_server_mode():
+    """Check if server is running with database or file-based storage"""
+    if 'server_mode' not in st.session_state:
+        try:
+            response = get_session().get(f"{API_SERVER_BASE}/health", timeout=5)
+            if response.status_code == 200:
+                health_data = response.json()
+                # Check if database is available
+                st.session_state['server_mode'] = 'database' if health_data.get('database') == 'connected' else 'file'
+                st.session_state['auth_enabled'] = health_data.get('database') == 'connected'
+            else:
+                st.session_state['server_mode'] = 'file'
+                st.session_state['auth_enabled'] = False
+        except Exception as e:
+            logger.warning(f"Could not check server mode: {e}")
+            st.session_state['server_mode'] = 'file'
+            st.session_state['auth_enabled'] = False
+    return st.session_state.get('server_mode', 'file')
 
 # ==================== Authentication Helpers ====================
 
@@ -58,6 +81,21 @@ def get_auth_headers():
 
 def check_authentication():
     """Check if user is authenticated"""
+    # Check server mode first
+    server_mode = check_server_mode()
+    
+    # If authentication is not enabled (file-based mode), skip auth
+    if not st.session_state.get('auth_enabled', False):
+        st.session_state['authenticated'] = True
+        st.session_state['user_info'] = {
+            'username': 'local',
+            'email': 'local@localhost',
+            'name': 'Local User (File-based Mode)',
+            'roles': ['admin']
+        }
+        return True
+    
+    # If auth is enabled, check for token
     token = st.session_state.get('access_token')
     if not token:
         st.session_state.pop('authenticated', None)
@@ -399,6 +437,10 @@ if not check_authentication():
 # Header
 st.title("🔒 Ansible InSpec Execution Server")
 st.markdown("**Web UI and REST API for ansible-inspec compliance testing**")
+
+# Show file-based mode banner if applicable
+if st.session_state.get('server_mode') == 'file':
+    st.warning("⚠️ **File-based Mode**: Server is running without a database. Authentication is disabled. Some features may be limited.")
 
 st.markdown("---")
 

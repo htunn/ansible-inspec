@@ -74,29 +74,33 @@ async def lifespan(app: FastAPI):
     else:
         logger.warning("No encryption key configured - VCS credentials will not be encrypted")
     
-    # Initialize VCS manager
+    # Initialize VCS manager (only if database is available)
     if settings.vcs.enabled and encryption:
-        vcs_manager = VCSManager(storage=storage, encryption=encryption)
-        logger.info("VCS manager initialized")
+        # Check if database is connected before initializing VCS
+        from ansible_inspec.server.db.prisma_client import _prisma_client
         
-        # Initialize and start VCS scheduler
-        vcs_scheduler = VCSPollingScheduler()
-        vcs_scheduler.start()
-        logger.info("VCS polling scheduler started")
-        
-        # Load repositories from database and create polling jobs
-        try:
-            async with get_db() as db:
-                repositories = await db.vcsrepository.find_many()
+        if _prisma_client is not None:
+            vcs_manager = VCSManager(storage=storage, encryption=encryption)
+            logger.info("VCS manager initialized")
+            
+            # Initialize and start VCS scheduler
+            vcs_scheduler = VCSPollingScheduler()
+            vcs_scheduler.start()
+            logger.info("VCS polling scheduler started")
+            
+            # Load repositories from database and create polling jobs
+            try:
+                async with get_db() as db:
+                    repositories = await db.vcsrepository.find_many()
                 
                 for repo in repositories:
                     # Create polling job for each enabled repository
-                    async def poll_func(repo_name=repo.name):
+                    async def poll_func(repository_url=repo.url, credential_id=repo.credentialId):
                         """Async wrapper for repository sync"""
                         try:
-                            await vcs_manager.sync_repository(repo_name)
+                            await vcs_manager.sync_repository(repo.name)
                         except Exception as e:
-                            logger.error(f"VCS sync failed for {repo_name}: {e}")
+                            logger.error(f"VCS sync failed for {repo.name}: {e}")
                     
                     vcs_scheduler.add_vcs_poll_job(
                         job_id=f"vcs-poll-{repo.name}",
@@ -107,8 +111,10 @@ async def lifespan(app: FastAPI):
                     )
                 
                 logger.info(f"Loaded {len(repositories)} VCS repositories for polling")
-        except Exception as e:
-            logger.error(f"Failed to load VCS repositories: {e}")
+            except Exception as e:
+                logger.error(f"Failed to load VCS repositories: {e}")
+        else:
+            logger.info("VCS manager disabled - database not available")
     
     # Initialize Azure AD
     if settings.auth.enabled:
@@ -212,10 +218,16 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
+    from ansible_inspec.server.db.prisma_client import _prisma_client
+    
+    # Check if database is connected
+    database_status = "connected" if _prisma_client is not None else "disconnected"
+    
     return {
         "status": "healthy",
         "version": "0.4.0",
         "storage_backend": settings.storage_backend,
+        "database": database_status,
         "auth_enabled": settings.auth.enabled,
         "vcs_enabled": settings.vcs.enabled,
     }
