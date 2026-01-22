@@ -412,6 +412,38 @@ def get_vcs_sync_history(repo_name):
     except:
         return []
 
+def get_vcs_file_tree(repo_name):
+    """Get file tree for a VCS repository"""
+    try:
+        response = get_session().get(
+            f"{API_BASE}/vcs/repositories/{repo_name}/files/",
+            headers=get_auth_headers()
+        )
+        if response.status_code == 401:
+            logout()
+            return None
+        if response.status_code == 200:
+            return response.json()
+        return None
+    except:
+        return None
+
+def get_vcs_file_content(repo_name, file_path):
+    """Get content of a specific file from VCS repository"""
+    try:
+        response = get_session().get(
+            f"{API_BASE}/vcs/repositories/{repo_name}/files/{file_path}",
+            headers=get_auth_headers()
+        )
+        if response.status_code == 401:
+            logout()
+            return None
+        if response.status_code == 200:
+            return response.json().get('content', '')
+        return None
+    except:
+        return None
+
 # Custom CSS
 st.markdown("""
 <style>
@@ -1054,7 +1086,7 @@ elif page == "🔄 Version Control":
     """)
     
     # Tabs for different VCS operations
-    tab1, tab2, tab3 = st.tabs(["📋 Repositories", "➕ Add Repository", "📊 Sync History"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📋 Repositories", "➕ Add Repository", "📊 Sync History", "📄 Source Code"])
     
     with tab1:
         st.subheader("Configured Repositories")
@@ -1313,6 +1345,91 @@ elif page == "🔄 Version Control":
                     st.info(f"No sync history found for {selected_repo}")
         else:
             st.info("No repositories configured")
+    
+    with tab4:
+        st.subheader("Browse Repository Source Code")
+        
+        repos = get_vcs_repositories()
+        
+        if repos:
+            selected_repo = st.selectbox(
+                "Select Repository",
+                [repo['name'] for repo in repos],
+                key="source_code_repo_selector"
+            )
+            
+            if selected_repo:
+                repo_info = next((r for r in repos if r['name'] == selected_repo), None)
+                
+                if repo_info and repo_info.get('lastSyncAt'):
+                    # Browse files in the synced repository
+                    st.markdown(f"**Repository:** `{repo_info['url']}`")
+                    st.markdown(f"**Branch:** `{repo_info.get('branch', 'main')}`")
+                    
+                    # Get file tree from API
+                    file_tree = get_vcs_file_tree(selected_repo)
+                    
+                    if file_tree:
+                        # Create a file selector
+                        files = file_tree.get('files', [])
+                        
+                        if files:
+                            # Group files by directory
+                            directories = {}
+                            for file_path in files:
+                                dir_name = file_path.split('/')[0] if '/' in file_path else '.'
+                                if dir_name not in directories:
+                                    directories[dir_name] = []
+                                directories[dir_name].append(file_path)
+                            
+                            # Directory selector
+                            selected_dir = st.selectbox(
+                                "Directory",
+                                sorted(directories.keys()),
+                                key="source_code_dir_selector"
+                            )
+                            
+                            if selected_dir:
+                                dir_files = sorted(directories[selected_dir])
+                                selected_file = st.selectbox(
+                                    "File",
+                                    dir_files,
+                                    key="source_code_file_selector"
+                                )
+                                
+                                if selected_file:
+                                    # Get file content from API
+                                    file_content = get_vcs_file_content(selected_repo, selected_file)
+                                    
+                                    if file_content:
+                                        st.markdown(f"### 📄 {selected_file}")
+                                        
+                                        # Detect file type for syntax highlighting
+                                        file_ext = selected_file.split('.')[-1] if '.' in selected_file else ''
+                                        lang_map = {
+                                            'py': 'python',
+                                            'rb': 'ruby',
+                                            'yml': 'yaml',
+                                            'yaml': 'yaml',
+                                            'json': 'json',
+                                            'sh': 'bash',
+                                            'md': 'markdown',
+                                            'js': 'javascript',
+                                            'ts': 'typescript'
+                                        }
+                                        lang = lang_map.get(file_ext, '')
+                                        
+                                        st.code(file_content, language=lang, line_numbers=True)
+                                    else:
+                                        st.error("Failed to load file content")
+                        else:
+                            st.info("No files found in repository")
+                    else:
+                        st.error("Failed to load file tree. The repository may not be synced yet.")
+                else:
+                    st.warning(f"Repository '{selected_repo}' has not been synced yet. Click 'Sync Now' in the Repositories tab.")
+        else:
+            st.info("No repositories configured.")
 
 # API Docs Page
 elif page == "📚 API Docs":

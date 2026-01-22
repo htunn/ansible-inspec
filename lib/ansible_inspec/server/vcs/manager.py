@@ -64,6 +64,8 @@ class VCSManager:
         error_message = None
         profiles_found = 0
         templates_created = 0
+        sync_history_id = None
+        current_hash = None
         
         try:
             async with get_db() as db:
@@ -75,6 +77,17 @@ class VCSManager:
                 
                 if not repo:
                     raise ValueError(f"Repository not found: {repo_name}")
+                
+                # Create sync history record
+                sync_record = await db.vcssynchistory.create(
+                    data={
+                        "repositoryId": repo.id,
+                        "syncStartedAt": start_time,
+                        "status": "running",
+                        "triggerType": "manual"
+                    }
+                )
+                sync_history_id = sync_record.id
                 
                 # Update sync status
                 await db.vcsrepository.update(
@@ -88,6 +101,18 @@ class VCSManager:
                 
                 if not changed and repo.lastSyncAt:
                     logger.info(f"No changes in repository: {repo_name}")
+                    
+                    # Update sync history
+                    if sync_history_id:
+                        await db.vcssynchistory.update(
+                            where={"id": sync_history_id},
+                            data={
+                                "syncCompletedAt": datetime.now(),
+                                "status": "success",
+                                "commitHash": repo.lastCommitHash
+                            }
+                        )
+                    
                     await db.vcsrepository.update(
                         where={"name": repo_name},
                         data={
@@ -112,7 +137,7 @@ class VCSManager:
                 # Create or update job templates
                 if repo.autoImport:
                     for profile in profiles:
-                        if await self._upsert_job_template(profile, repo):
+                        if await self._upsert_job_template(profile, repo, repo_path):
                             templates_created += 1
                     logger.info(f"Created/updated {templates_created} job templates")
                 
@@ -120,6 +145,19 @@ class VCSManager:
                 import git
                 git_repo = git.Repo(repo_path)
                 current_hash = git_repo.head.commit.hexsha
+                
+                # Update sync history with results
+                if sync_history_id:
+                    await db.vcssynchistory.update(
+                        where={"id": sync_history_id},
+                        data={
+                            "syncCompletedAt": datetime.now(),
+                            "status": "success",
+                            "commitHash": current_hash,
+                            "profilesDiscovered": profiles_found,
+                            "templatesCreated": templates_created
+                        }
+                    )
                 
                 # Update repository sync info
                 await db.vcsrepository.update(
@@ -139,6 +177,18 @@ class VCSManager:
             
             # Update repository with error
             async with get_db() as db:
+                # Update sync history with error
+                if sync_history_id:
+                    await db.vcssynchistory.update(
+                        where={"id": sync_history_id},
+                        data={
+                            "syncCompletedAt": datetime.now(),
+                            "status": "failed",
+                            "errors": error_message,
+                            "commitHash": current_hash
+                        }
+                    )
+                
                 await db.vcsrepository.update(
                     where={"name": repo_name},
                     data={
@@ -272,13 +322,14 @@ class VCSManager:
         
         return profiles
 
-    async def _upsert_job_template(self, profile: dict, repo) -> bool:
+    async def _upsert_job_template(self, profile: dict, repo, repo_path: str) -> bool:
         """
         Create or update job template from InSpec profile.
         
         Args:
             profile: Profile info dict from find_inspec_profiles
             repo: VCSRepository database model
+            repo_path: Path to cloned repository
             
         Returns:
             True if template was created/updated
@@ -305,7 +356,7 @@ class VCSManager:
                     "description": inspec_data.get("title", inspec_data.get("summary", "")),
                     "profile": profile["path"],
                     "vcsRepoId": repo.id,
-                    "vcsPath": os.path.relpath(profile["path"], profile["repo_path"]),
+                    "vcsPath": os.path.relpath(profile["path"], repo_path),
                     "vcsSync": True,
                 }
                 

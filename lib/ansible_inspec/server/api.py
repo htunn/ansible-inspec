@@ -866,15 +866,15 @@ async def get_repository_sync_history(
             "results": [
                 {
                     "id": h.id,
-                    "started_at": h.syncStartedAt.isoformat(),
-                    "completed_at": h.syncCompletedAt.isoformat() if h.syncCompletedAt else None,
+                    "syncStartedAt": h.syncStartedAt.isoformat(),
+                    "syncCompletedAt": h.syncCompletedAt.isoformat() if h.syncCompletedAt else None,
                     "status": h.status,
-                    "commit_hash": h.commitHash,
-                    "profiles_discovered": h.profilesDiscovered,
-                    "templates_created": h.templatesCreated,
+                    "commitHash": h.commitHash,
+                    "profilesDiscovered": h.profilesDiscovered,
+                    "templatesCreated": h.templatesCreated,
                     "errors": h.errors,
-                    "triggered_by": h.triggeredBy,
-                    "trigger_type": h.triggerType,
+                    "triggeredBy": h.triggeredBy,
+                    "triggerType": h.triggerType,
                     "duration_seconds": (
                         (h.syncCompletedAt - h.syncStartedAt).total_seconds()
                         if h.syncCompletedAt else None
@@ -882,6 +882,112 @@ async def get_repository_sync_history(
                 }
                 for h in history
             ]
+        }
+
+
+@app.get("/api/v1/vcs/repositories/{repo_name}/files")
+async def list_repository_files(
+    repo_name: str,
+    current_user: UserModel = Depends(require_role("viewer"))
+):
+    """
+    List all files in a repository.
+    
+    Args:
+        repo_name: Repository name
+    """
+    import os
+    from pathlib import Path
+    
+    async with get_db() as db:
+        # Find the repository
+        repo = await db.vcsrepository.find_unique(where={"name": repo_name})
+        if not repo:
+            raise HTTPException(status_code=404, detail=f"Repository '{repo_name}' not found")
+        
+        if not repo.lastSyncAt:
+            raise HTTPException(status_code=400, detail=f"Repository '{repo_name}' has not been synced yet")
+        
+        # Build path to repository
+        repo_path = Path("/tmp/ansible-inspec-repos") / repo_name
+        
+        if not repo_path.exists():
+            raise HTTPException(status_code=404, detail=f"Repository '{repo_name}' not found on disk")
+        
+        # List all files recursively
+        files = []
+        for root, dirs, filenames in os.walk(repo_path):
+            # Skip .git directory
+            if '.git' in dirs:
+                dirs.remove('.git')
+            
+            for filename in filenames:
+                file_path = Path(root) / filename
+                rel_path = file_path.relative_to(repo_path)
+                files.append(str(rel_path))
+        
+        return {
+            "repository": repo_name,
+            "count": len(files),
+            "files": sorted(files)
+        }
+
+
+@app.get("/api/v1/vcs/repositories/{repo_name}/files/{file_path:path}")
+async def get_repository_file_content(
+    repo_name: str,
+    file_path: str,
+    current_user: UserModel = Depends(require_role("viewer"))
+):
+    """
+    Get content of a specific file from a repository.
+    
+    Args:
+        repo_name: Repository name
+        file_path: Relative path to file within repository
+    """
+    from pathlib import Path
+    
+    async with get_db() as db:
+        # Find the repository
+        repo = await db.vcsrepository.find_unique(where={"name": repo_name})
+        if not repo:
+            raise HTTPException(status_code=404, detail=f"Repository '{repo_name}' not found")
+        
+        if not repo.lastSyncAt:
+            raise HTTPException(status_code=400, detail=f"Repository '{repo_name}' has not been synced yet")
+        
+        # Build path to file
+        repo_path = Path("/tmp/ansible-inspec-repos") / repo_name
+        full_file_path = repo_path / file_path
+        
+        # Security check: ensure file is within repository
+        try:
+            full_file_path.resolve().relative_to(repo_path.resolve())
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid file path")
+        
+        if not full_file_path.exists():
+            raise HTTPException(status_code=404, detail=f"File '{file_path}' not found")
+        
+        if not full_file_path.is_file():
+            raise HTTPException(status_code=400, detail=f"Path '{file_path}' is not a file")
+        
+        # Read file content
+        try:
+            with open(full_file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+        except UnicodeDecodeError:
+            # Binary file
+            raise HTTPException(status_code=400, detail=f"File '{file_path}' is not a text file")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error reading file: {str(e)}")
+        
+        return {
+            "repository": repo_name,
+            "file_path": file_path,
+            "content": content,
+            "size": len(content)
         }
 
 
