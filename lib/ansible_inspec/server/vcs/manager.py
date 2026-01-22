@@ -395,11 +395,11 @@ class VCSManager:
                     "name": r.name,
                     "url": r.url,
                     "branch": r.branch,
-                    "sync_status": r.syncStatus,
-                    "last_sync_at": r.lastSyncAt.isoformat() if r.lastSyncAt else None,
-                    "last_commit_hash": r.lastCommitHash,
-                    "sync_error": r.syncError,
-                    "poll_interval": r.pollInterval,
+                    "syncStatus": r.syncStatus,
+                    "lastSyncAt": r.lastSyncAt.isoformat() if r.lastSyncAt else None,
+                    "lastCommitHash": r.lastCommitHash,
+                    "syncError": r.syncError,
+                    "pollInterval": r.pollInterval,
                 }
                 for r in repos
             ]

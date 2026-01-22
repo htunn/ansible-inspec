@@ -38,6 +38,8 @@ st.set_page_config(
 
 # API Base URL - use environment variable for Docker, fallback to localhost
 import os
+# API_BASE_URL: For server-side Python requests (inside Docker: api:8080, outside: localhost:8080)
+# API_SERVER_URL: For client-side browser redirects/links (always localhost:8080)
 API_BASE = os.getenv("API_BASE_URL", "http://localhost:8080/api/v1")
 API_SERVER = os.getenv("API_SERVER_URL", "http://localhost:8080")
 # Extract base server URL from API_BASE for health checks
