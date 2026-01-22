@@ -485,6 +485,9 @@ async def list_job_templates(
                 "profile": t.profile,
                 "created_at": t.created_at.isoformat() if t.created_at else None,
                 "updated_at": t.updated_at.isoformat() if t.updated_at else None,
+                "vcsRepoId": getattr(t, 'vcsRepoId', None),
+                "vcsPath": getattr(t, 'vcsPath', None),
+                "vcsSync": getattr(t, 'vcsSync', False),
             }
             for t in templates
         ]
@@ -539,6 +542,9 @@ async def get_job_template(
         "extra_vars": template.extra_vars,
         "created_at": template.created_at.isoformat() if template.created_at else None,
         "updated_at": template.updated_at.isoformat() if template.updated_at else None,
+        "vcsRepoId": getattr(template, 'vcsRepoId', None),
+        "vcsPath": getattr(template, 'vcsPath', None),
+        "vcsSync": getattr(template, 'vcsSync', False),
     }
 
 

@@ -114,7 +114,7 @@ class PrismaStorageBackend(StorageBackend):
                     id=t.id,
                     name=t.name,
                     description=t.description,
-                    profile=t.profile,
+                    profile_path=t.profile,
                     extra_vars=t.extraVars if t.extraVars else {},
                     created_at=t.createdAt,
                     updated_at=t.updatedAt,

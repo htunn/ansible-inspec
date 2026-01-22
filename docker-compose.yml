@@ -38,6 +38,8 @@ services:
       - ./data:/app/data
       # Mount profiles directory for local InSpec profiles
       - ./profiles:/app/profiles:ro
+      # Mount VCS repositories directory for synced Git repositories
+      - vcs_repos:/tmp/ansible-inspec-repos
     depends_on:
       postgres:
         condition: service_healthy
@@ -103,6 +105,9 @@ volumes:
   postgres_data:
     driver: local
     name: ansible-inspec-postgres-data
+  vcs_repos:
+    driver: local
+    name: ansible-inspec-vcs-repos
 
 networks:
   ansible-inspec-network:

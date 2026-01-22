@@ -236,7 +236,7 @@ def get_job_templates():
     """Get all job templates"""
     try:
         response = get_session().get(
-            f"{API_BASE}/job_templates/",
+            f"{API_BASE}/job-templates/",
             headers=get_auth_headers()
         )
         if response.status_code == 401:
@@ -251,7 +251,7 @@ def launch_job(template_id, extra_vars=None):
     try:
         payload = {"extra_vars": extra_vars or {}}
         response = get_session().post(
-            f"{API_BASE}/job_templates/{template_id}/launch/",
+            f"{API_BASE}/job-templates/{template_id}/launch/",
             json=payload,
             headers=get_auth_headers()
         )
@@ -266,7 +266,7 @@ def create_job_template(template_data):
     """Create a new job template"""
     try:
         response = get_session().post(
-            f"{API_BASE}/job_templates/",
+            f"{API_BASE}/job-templates/",
             json=template_data,
             headers=get_auth_headers()
         )
@@ -743,7 +743,7 @@ elif page == "📝 Job Templates":
                             if st.button("✅", key=f"confirm_yes_{template['id']}", help="Confirm delete"):
                                 try:
                                     response = get_session().delete(
-                                        f"{API_BASE}/job_templates/{template['id']}/",
+                                        f"{API_BASE}/job-templates/{template['id']}/",
                                         headers=get_auth_headers()
                                     )
                                     if response.status_code == 204:
