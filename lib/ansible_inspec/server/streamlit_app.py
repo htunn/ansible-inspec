@@ -205,7 +205,10 @@ def logout():
 def get_statistics():
     """Get server statistics"""
     try:
-        response = get_session().get(f"{API_BASE}/statistics/")
+        response = get_session().get(
+            f"{API_BASE}/statistics/",
+            headers=get_auth_headers()
+        )
         if response.status_code == 401:
             logout()
             return {}
@@ -216,7 +219,10 @@ def get_statistics():
 def get_jobs():
     """Get all jobs"""
     try:
-        response = get_session().get(f"{API_BASE}/jobs/")
+        response = get_session().get(
+            f"{API_BASE}/jobs/",
+            headers=get_auth_headers()
+        )
         if response.status_code == 401:
             logout()
             return []
@@ -227,7 +233,10 @@ def get_jobs():
 def get_job_templates():
     """Get all job templates"""
     try:
-        response = get_session().get(f"{API_BASE}/job_templates/")
+        response = get_session().get(
+            f"{API_BASE}/job_templates/",
+            headers=get_auth_headers()
+        )
         if response.status_code == 401:
             logout()
             return []
@@ -315,7 +324,10 @@ def get_job_logs(job_id, lines=100):
 def get_vcs_repositories():
     """Get all VCS repositories"""
     try:
-        response = get_session().get(f"{API_BASE}/vcs/repositories/")
+        response = get_session().get(
+            f"{API_BASE}/vcs/repositories/",
+            headers=get_auth_headers()
+        )
         if response.status_code == 401:
             logout()
             return []
@@ -326,7 +338,10 @@ def get_vcs_repositories():
 def get_vcs_repository(repo_name):
     """Get a specific VCS repository"""
     try:
-        response = get_session().get(f"{API_BASE}/vcs/repositories/{repo_name}/")
+        response = get_session().get(
+            f"{API_BASE}/vcs/repositories/{repo_name}/",
+            headers=get_auth_headers()
+        )
         if response.status_code == 401:
             logout()
             return None
@@ -582,7 +597,10 @@ elif page == "📋 Jobs":
                 # Add delete button for pending jobs
                 if job['status'] == 'pending':
                     if st.button(f"🗑️ Delete", key=f"delete_{job['id']}", type="secondary"):
-                        response = get_session().delete(f"{API_BASE}/jobs/{job['id']}/")
+                        response = get_session().delete(
+                            f"{API_BASE}/jobs/{job['id']}/",
+                            headers=get_auth_headers()
+                        )
                         if response.status_code == 200:
                             st.success(f"Job {job['id'][:8]} deleted")
                             time.sleep(1)
@@ -690,7 +708,10 @@ elif page == "📝 Job Templates":
                             # Show confirmation
                             if st.button("✅", key=f"confirm_yes_{template['id']}", help="Confirm delete"):
                                 try:
-                                    response = get_session().delete(f"{API_BASE}/job_templates/{template['id']}/")
+                                    response = get_session().delete(
+                                        f"{API_BASE}/job_templates/{template['id']}/",
+                                        headers=get_auth_headers()
+                                    )
                                     if response.status_code == 204:
                                         st.success(f"Template '{template['name']}' deleted")
                                         st.session_state[delete_key] = False
