@@ -418,7 +418,7 @@ def get_vcs_file_tree(repo_name):
     """Get file tree for a VCS repository"""
     try:
         response = get_session().get(
-            f"{API_BASE}/vcs/repositories/{repo_name}/files/",
+            f"{API_BASE}/vcs/repositories/{repo_name}/files",
             headers=get_auth_headers()
         )
         if response.status_code == 401:
