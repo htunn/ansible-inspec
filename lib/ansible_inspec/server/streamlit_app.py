@@ -1100,8 +1100,11 @@ elif page == "🔄 Version Control":
                                 else:
                                     st.error(f"Failed to sync {repo['name']}")
                         
+                        delete_confirm_key = f'confirm_delete_{repo["name"]}'
                         if st.button("🗑️ Delete", key=f"delete_{repo['name']}", use_container_width=True, type="secondary"):
-                            if st.session_state.get(f'confirm_delete_{repo["name"]}'):
+                            if st.session_state.get(delete_confirm_key):
+                                # User clicked delete again - proceed with deletion
+                                st.session_state[delete_confirm_key] = False
                                 if delete_vcs_repository(repo['name']):
                                     st.success(f"✅ Repository '{repo['name']}' deleted")
                                     time.sleep(1)
@@ -1109,10 +1112,10 @@ elif page == "🔄 Version Control":
                                 else:
                                     st.error("Failed to delete repository")
                             else:
-                                st.session_state[f'confirm_delete_{repo["name"]}'] = True
+                                # First click - set confirmation flag
+                                st.session_state[delete_confirm_key] = True
                                 st.warning("⚠️ Click delete again to confirm")
-                                time.sleep(2)
-                                st.session_state[f'confirm_delete_{repo["name"]}'] = False
+                                st.rerun()
         else:
             st.info("No repositories configured. Add a repository in the 'Add Repository' tab.")
     
@@ -1130,7 +1133,11 @@ elif page == "🔄 Version Control":
         
         st.markdown("---")
         
-        with st.form("vcs_repo_form"):
+        # Initialize success counter to force form reset
+        if 'vcs_form_success_count' not in st.session_state:
+            st.session_state.vcs_form_success_count = 0
+        
+        with st.form(f"vcs_repo_form_{st.session_state.vcs_form_success_count}"):
             repo_name = st.text_input(
                 "Repository Name",
                 placeholder="my-inspec-profiles",
@@ -1246,6 +1253,8 @@ elif page == "🔄 Version Control":
                     if result:
                         st.success(f"✅ Repository '{repo_name}' added successfully!")
                         st.info("💡 Triggering initial sync...")
+                        # Increment counter to reset form on next render
+                        st.session_state.vcs_form_success_count += 1
                         time.sleep(2)
                         st.rerun()
                     else:
