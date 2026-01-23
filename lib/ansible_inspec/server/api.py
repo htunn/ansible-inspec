@@ -8,6 +8,7 @@ and database-backed storage.
 import os
 import logging
 import json
+import time
 from contextlib import asynccontextmanager
 from typing import List, Optional, Dict, Any
 from datetime import datetime
@@ -26,12 +27,13 @@ from ansible_inspec.server.auth.azure_ad import AzureADAuth
 from ansible_inspec.server.encryption import EncryptionService
 from ansible_inspec.server.vcs.manager import VCSManager
 from ansible_inspec.server.vcs.scheduler import VCSPollingScheduler
-from ansible_inspec.server.models import (
+from prisma.models import (
     JobTemplate as JobTemplateModel,
     Job as JobModel,
     User as UserModel,
     VCSCredential as VCSCredentialModel,
 )
+from prisma import Json as PrismaJson
 from ansible_inspec.server.monitoring import (
     record_storage_operation,
     record_auth_request,
@@ -162,6 +164,9 @@ class JobTemplateCreate(BaseModel):
     description: Optional[str] = ""
     profile: str
     extra_vars: Dict[str, Any] = {}
+    vcs_repo_id: Optional[str] = None
+    vcs_path: Optional[str] = None
+    vcs_sync: bool = False
 
 
 class JobTemplateUpdate(BaseModel):
@@ -483,8 +488,8 @@ async def list_job_templates(
                 "name": t.name,
                 "description": t.description,
                 "profile": t.profile,
-                "created_at": t.created_at.isoformat() if t.created_at else None,
-                "updated_at": t.updated_at.isoformat() if t.updated_at else None,
+                "created_at": t.createdAt.isoformat() if t.createdAt else None,
+                "updated_at": t.updatedAt.isoformat() if t.updatedAt else None,
                 "vcsRepoId": getattr(t, 'vcsRepoId', None),
                 "vcsPath": getattr(t, 'vcsPath', None),
                 "vcsSync": getattr(t, 'vcsSync', False),
@@ -501,26 +506,36 @@ async def create_job_template(
 ):
     """Create a new job template."""
     import uuid
+    import json
+    import time
     
+    start_time = time.time()
     template = JobTemplateModel(
         id=str(uuid.uuid4()),
         name=template_data.name,
         description=template_data.description or "",
         profile=template_data.profile,
-        extra_vars=template_data.extra_vars,
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
+        extraVars=json.dumps(template_data.extra_vars),
+        createdAt=datetime.now(),
+        updatedAt=datetime.now(),
+        vcsRepoId=template_data.vcs_repo_id,
+        vcsPath=template_data.vcs_path,
+        vcsSync=template_data.vcs_sync,
     )
     
     await storage.save_job_template(template)
-    record_storage_operation(backend=settings.storage_backend, operation="create", status="success")
+    duration = time.time() - start_time
+    record_storage_operation(backend=settings.storage_backend, operation="create", status="success", duration=duration)
     
     return {
         "id": template.id,
         "name": template.name,
         "description": template.description,
         "profile": template.profile,
-        "created_at": template.created_at.isoformat(),
+        "created_at": template.createdAt.isoformat(),
+        "vcsRepoId": template.vcsRepoId,
+        "vcsPath": template.vcsPath,
+        "vcsSync": template.vcsSync,
     }
 
 
@@ -539,9 +554,9 @@ async def get_job_template(
         "name": template.name,
         "description": template.description,
         "profile": template.profile,
-        "extra_vars": template.extra_vars,
-        "created_at": template.created_at.isoformat() if template.created_at else None,
-        "updated_at": template.updated_at.isoformat() if template.updated_at else None,
+        "extra_vars": json.loads(template.extraVars) if template.extraVars else {},
+        "created_at": template.createdAt.isoformat() if template.createdAt else None,
+        "updated_at": template.updatedAt.isoformat() if template.updatedAt else None,
         "vcsRepoId": getattr(template, 'vcsRepoId', None),
         "vcsPath": getattr(template, 'vcsPath', None),
         "vcsSync": getattr(template, 'vcsSync', False),
@@ -567,19 +582,21 @@ async def update_job_template(
     if update_data.profile is not None:
         template.profile = update_data.profile
     if update_data.extra_vars is not None:
-        template.extra_vars = update_data.extra_vars
+        template.extraVars = json.dumps(update_data.extra_vars)
     
-    template.updated_at = datetime.now()
+    template.updatedAt = datetime.now()
     
+    start_time = time.time()
     await storage.save_job_template(template)
-    record_storage_operation(backend=settings.storage_backend, operation="update", status="success")
+    duration = time.time() - start_time
+    record_storage_operation(backend=settings.storage_backend, operation="update", status="success", duration=duration)
     
     return {
         "id": template.id,
         "name": template.name,
         "description": template.description,
         "profile": template.profile,
-        "updated_at": template.updated_at.isoformat(),
+        "updated_at": template.updatedAt.isoformat(),
     }
 
 
@@ -589,11 +606,57 @@ async def delete_job_template(
     current_user: UserModel = Depends(require_role("admin"))
 ):
     """Delete a job template."""
+    start_time = time.time()
     if not await storage.delete_job_template(template_id):
         raise HTTPException(status_code=404, detail="Job template not found")
     
-    record_storage_operation(backend=settings.storage_backend, operation="delete", status="success")
+    duration = time.time() - start_time
+    record_storage_operation(backend=settings.storage_backend, operation="delete", status="success", duration=duration)
     return None
+
+
+@app.post("/api/v1/job-templates/{template_id}/launch", status_code=status.HTTP_201_CREATED)
+async def launch_job_from_template(
+    template_id: str,
+    launch_data: dict = {},
+    current_user: UserModel = Depends(require_role("operator"))
+):
+    """Launch a new job from a template."""
+    import uuid
+    
+    # Get template
+    template = await storage.get_job_template(template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail="Job template not found")
+    
+    # Merge extra_vars from template and launch
+    extra_vars = json.loads(template.extraVars) if template.extraVars else {}
+    if "extra_vars" in launch_data:
+        extra_vars.update(launch_data["extra_vars"])
+    
+    # Create job - extraVars as string for Prisma model
+    job = JobModel(
+        id=str(uuid.uuid4()),
+        templateId=template.id,
+        templateName=template.name,
+        status="pending",
+        extraVars=json.dumps(extra_vars),
+        createdAt=datetime.now(),
+    )
+    
+    start_time = time.time()
+    await storage.save_job(job)
+    duration = time.time() - start_time
+    record_storage_operation(backend=settings.storage_backend, operation="create", status="success", duration=duration)
+    
+    # TODO: Launch job in background using executor
+    
+    return {
+        "id": job.id,
+        "template_id": job.templateId,
+        "status": job.status,
+        "created_at": job.createdAt.isoformat(),
+    }
 
 
 # ==================== Job Endpoints ====================
@@ -609,13 +672,16 @@ async def list_jobs(
         "results": [
             {
                 "id": j.id,
-                "template_id": j.template_id,
-                "template_name": j.template_name,
+                "template_id": j.templateId,
+                "template_name": j.templateName,
                 "status": j.status,
                 "target": j.target,
-                "created_at": j.created_at.isoformat() if j.created_at else None,
-                "started_at": j.started_at.isoformat() if j.started_at else None,
-                "finished_at": j.finished_at.isoformat() if j.finished_at else None,
+                "stdout": j.stdout,
+                "stderr": j.stderr,
+                "exit_code": j.exitCode,
+                "created_at": j.createdAt.isoformat() if j.createdAt else None,
+                "started_at": j.startedAt.isoformat() if j.startedAt else None,
+                "finished_at": j.finishedAt.isoformat() if j.finishedAt else None,
             }
             for j in jobs
         ]

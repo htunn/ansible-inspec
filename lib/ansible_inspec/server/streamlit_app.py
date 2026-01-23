@@ -273,8 +273,13 @@ def create_job_template(template_data):
         if response.status_code == 401:
             logout()
             return False
+        if response.status_code != 201:
+            print(f"Template creation failed: {response.status_code}")
+            print(f"Response: {response.text}")
+            print(f"Template data sent: {template_data}")
         return response.status_code == 201
-    except:
+    except Exception as e:
+        print(f"Exception creating template: {e}")
         return False
 
 def update_job_template(template_id, template_data):
@@ -579,7 +584,7 @@ if page == "📊 Dashboard":
         recent_jobs = jobs[:10]  # Show last 10 jobs
         
         df = pd.DataFrame([{
-            'Template': job['job_template_name'],
+            'Template': job['template_name'],
             'Status': job['status'],
             'Created': datetime.fromisoformat(job['created_at']).strftime('%Y-%m-%d %H:%M:%S'),
             'ID': job['id'][:8]
@@ -612,13 +617,13 @@ elif page == "📋 Jobs":
         for job in jobs:
             with st.expander(
                 f"{'✅' if job['status'] == 'successful' else '❌' if job['status'] == 'failed' else '🔄' if job['status'] == 'running' else '⏸️'} "
-                f"{job['job_template_name']} - {job['status'].upper()}"
+                f"{job['template_name']} - {job['status'].upper()}"
             ):
                 col1, col2 = st.columns(2)
                 
                 with col1:
                     st.write(f"**Job ID:** `{job['id']}`")
-                    st.write(f"**Template:** {job['job_template_name']}")
+                    st.write(f"**Template:** {job['template_name']}")
                     st.write(f"**Status:** {job['status']}")
                 
                 with col2:
@@ -627,6 +632,21 @@ elif page == "📋 Jobs":
                         st.write(f"**Started:** {datetime.fromisoformat(job['started_at']).strftime('%Y-%m-%d %H:%M:%S')}")
                     if job.get('finished_at'):
                         st.write(f"**Finished:** {datetime.fromisoformat(job['finished_at']).strftime('%Y-%m-%d %H:%M:%S')}")
+                    if job.get('exit_code') is not None:
+                        st.write(f"**Exit Code:** {job.get('exit_code')}")
+                
+                # Show job output if available
+                if job.get('stdout') or job.get('stderr'):
+                    st.markdown("---")
+                    st.markdown("**📄 Job Output**")
+                    
+                    if job.get('stdout'):
+                        with st.expander("📗 Standard Output (stdout)", expanded=True):
+                            st.code(job['stdout'], language="bash")
+                    
+                    if job.get('stderr'):
+                        with st.expander("📕 Standard Error (stderr)", expanded=job.get('exit_code', 0) != 0):
+                            st.code(job['stderr'], language="bash")
                 
                 # Add delete button for pending jobs
                 if job['status'] == 'pending':
@@ -923,12 +943,17 @@ elif page == "➕ Create Template":
                             else:
                                 st.error("Sync failed")
                 
-                # Show available profiles (this would need an API endpoint to list profiles)
-                st.markdown("**Available Profiles:**")
-                st.info("After syncing, profiles will be auto-created as templates. Go to 'Job Templates' to see them.")
+                # Available profiles section removed - it was misleading
+                # In the future, this could show actual profiles from the repository
                 
                 st.markdown("---")
-                st.markdown("### Or Create Template Manually")
+                st.markdown("### Create Template from VCS")
+                st.caption("Create a template and optionally link it to this VCS repository")
+    
+    # Store selected repo info for use in form
+    selected_vcs_repo = None
+    if template_source == "🔄 From VCS Repository" and 'selected_repo' in locals():
+        selected_vcs_repo = repo
     
     with st.form("create_template_form"):
         name = st.text_input("Template Name *", placeholder="My Compliance Check")
@@ -951,13 +976,107 @@ elif page == "➕ Create Template":
             inventory = st.text_input("Inventory File", placeholder="/path/to/inventory.yml")
             target = st.text_input(
                 "Target",
-                placeholder="ssh://user@host or docker://container (InSpec mode)"
+                placeholder="hostname or IP address"
+            )
+        
+        # SSH Connection Options
+        st.subheader("SSH Connection Options")
+        st.caption("Configure SSH access for remote host execution (InSpec/Ansible)")
+        
+        col_ssh1, col_ssh2 = st.columns(2)
+        with col_ssh1:
+            ssh_user = st.text_input(
+                "SSH Username",
+                placeholder="root",
+                help="Username for SSH connection to target host"
+            )
+            ssh_password = st.text_input(
+                "SSH Password",
+                type="password",
+                help="Password for SSH authentication (leave empty if using key)"
+            )
+        
+        with col_ssh2:
+            ssh_key_path = st.text_input(
+                "SSH Private Key Path",
+                placeholder="/path/to/private_key or ~/.ssh/id_rsa",
+                help="Path to SSH private key file (alternative to password)"
+            )
+            ssh_port = st.number_input(
+                "SSH Port",
+                min_value=1,
+                max_value=65535,
+                value=22,
+                help="SSH port number (default: 22)"
             )
         
         with col2:
             reporter = st.text_input("Reporter", value="cli json", help="InSpec reporter format (InSpec mode only)")
             job_type = st.selectbox("Job Type", ["run", "check", "scan"])
             supermarket = st.checkbox("Load from Chef Supermarket", help="InSpec mode only")
+        
+        # VCS Integration Section
+        st.subheader("Version Control Integration")
+        st.caption("Link this template to a VCS repository for automatic updates")
+        
+        vcs_enabled = st.checkbox(
+            "🔄 Link to VCS Repository",
+            value=selected_vcs_repo is not None,
+            help="Enable VCS integration to keep template synced with repository changes"
+        )
+        
+        # Get all VCS repositories (always fetch, regardless of checkbox state)
+        all_vcs_repos = get_vcs_repositories()
+        
+        vcs_repo_id = None
+        vcs_path = None
+        vcs_auto_sync = False
+        
+        # Always show VCS fields (disabled when unchecked)
+        col_vcs1, col_vcs2 = st.columns(2)
+        
+        with col_vcs1:
+            if all_vcs_repos:
+                vcs_repo_options = {r['name']: r for r in all_vcs_repos}
+                default_repo = selected_vcs_repo['name'] if selected_vcs_repo else list(vcs_repo_options.keys())[0]
+                
+                selected_vcs_name = st.selectbox(
+                    "VCS Repository",
+                    options=list(vcs_repo_options.keys()),
+                    index=list(vcs_repo_options.keys()).index(default_repo) if default_repo in vcs_repo_options else 0,
+                    help="Select the VCS repository containing your profile/playbook",
+                    disabled=not vcs_enabled
+                )
+                
+                if vcs_enabled:
+                    selected_vcs = vcs_repo_options[selected_vcs_name]
+                    vcs_repo_id = selected_vcs.get('id')
+                    
+                    st.caption(f"📁 **URL:** {selected_vcs.get('url', 'N/A')}")
+                    st.caption(f"🌿 **Branch:** {selected_vcs.get('branch', 'N/A')}")
+            else:
+                st.warning("⚠️ No VCS repositories configured. Add one in the 'Version Control' page first.")
+        
+        with col_vcs2:
+            vcs_path = st.text_input(
+                "Path in Repository",
+                placeholder="profiles/my-profile",
+                help="Relative path to the profile/playbook within the repository",
+                disabled=not vcs_enabled
+            )
+            
+            vcs_auto_sync = st.checkbox(
+                "🔄 Enable Auto-Sync",
+                value=True,
+                help="Automatically update this template when the repository is synced. Disable for manual control.",
+                disabled=not vcs_enabled
+            )
+            
+            if vcs_enabled:
+                if vcs_auto_sync:
+                    st.info("💡 Template will auto-update on repository sync")
+                else:
+                    st.info("✋ Template is linked but won't auto-update")
             
         # Advanced options for Ansible playbooks
         st.subheader("Advanced Options")
@@ -1038,6 +1157,24 @@ elif page == "➕ Create Template":
                                 key, value = line.split('=', 1)
                                 env_vars[key.strip()] = value.strip()
                 
+                # Build SSH connection options
+                ssh_options = {}
+                if ssh_user:
+                    ssh_options["ssh_user"] = ssh_user
+                if ssh_password:
+                    ssh_options["ssh_password"] = ssh_password
+                if ssh_key_path:
+                    ssh_options["ssh_key_path"] = ssh_key_path
+                if ssh_port and ssh_port != 22:
+                    ssh_options["ssh_port"] = ssh_port
+                
+                # Build extra_vars with all options
+                extra_vars_dict = {}
+                if env_vars:
+                    extra_vars_dict["env_vars"] = env_vars
+                if ssh_options:
+                    extra_vars_dict["ssh_options"] = ssh_options
+                
                 template_data = {
                     "name": name,
                     "description": description,
@@ -1056,25 +1193,27 @@ elif page == "➕ Create Template":
                     "allow_simultaneous": allow_simultaneous,
                     "use_fact_cache": use_fact_cache,
                     "job_slice_count": job_slice_count,
-                    "extra_vars": {"env_vars": env_vars} if env_vars else {},
+                    "extra_vars": extra_vars_dict,
                 }
                 
-                # Set either profile_path or playbook based on mode
-                if playbook_mode and profile_path:
-                    template_data["playbook"] = profile_path
-                    template_data["profile_path"] = None
-                elif profile_path:
-                    template_data["profile_path"] = profile_path
-                    template_data["playbook"] = None
+                # Add VCS fields if VCS integration is enabled
+                if vcs_enabled and vcs_repo_id:
+                    template_data["vcs_repo_id"] = vcs_repo_id
+                    template_data["vcs_path"] = vcs_path if vcs_path else None
+                    template_data["vcs_sync"] = vcs_auto_sync
+                
+                # Set profile field (API expects 'profile', not 'profile_path' or 'playbook')
+                # The profile field should contain the path to the InSpec profile or Ansible playbook
+                if profile_path:
+                    template_data["profile"] = profile_path
                 else:
-                    # Neither mode selected or no path provided
-                    template_data["profile_path"] = None
-                    template_data["playbook"] = None
+                    st.error("Profile Path / Playbook is required")
+                    st.stop()
                 
                 if create_job_template(template_data):
                     st.success(f"✅ Template '{name}' created successfully!")
-                    time.sleep(1)
-                    st.rerun()
+                    st.info("Go to 'Job Templates' page to view and launch jobs from this template.")
+                    # Don't rerun immediately - let user see success and keep their inputs if they want to create another similar template
                 else:
                     st.error("Failed to create template. Make sure the API server is running.")
 

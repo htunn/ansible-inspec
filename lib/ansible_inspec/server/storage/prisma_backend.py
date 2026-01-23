@@ -45,12 +45,28 @@ class PrismaStorageBackend(StorageBackend):
         Args:
             template: JobTemplate instance to save
         """
+        from prisma import Json
         async with get_db() as db:
+            # Prepare data - convert JSON string to dict, then wrap in Prisma Json
+            import json
+            extra_vars_data = template.extraVars
+            if isinstance(extra_vars_data, str):
+                # Parse JSON string to dict
+                extra_vars_data = json.loads(extra_vars_data)
+            elif extra_vars_data is None:
+                extra_vars_data = {}
+            
+            # Wrap dict in Prisma Json type
+            extra_vars_data = Json(extra_vars_data)
+            
             data = {
                 "name": template.name,
                 "description": template.description,
                 "profile": template.profile,
-                "extraVars": json.loads(json.dumps(template.extra_vars)) if template.extra_vars else {},
+                "extraVars": extra_vars_data,
+                "vcsRepoId": template.vcsRepoId,
+                "vcsPath": template.vcsPath,
+                "vcsSync": template.vcsSync,
             }
             
             existing = await db.jobtemplate.find_unique(where={"id": template.id})
@@ -65,6 +81,8 @@ class PrismaStorageBackend(StorageBackend):
                 await db.jobtemplate.create(
                     data={
                         "id": template.id,
+                        "createdAt": template.createdAt,
+                        "updatedAt": template.updatedAt,
                         **data
                     }
                 )
@@ -85,17 +103,7 @@ class PrismaStorageBackend(StorageBackend):
                 where={"id": template_id}
             )
             
-            if template:
-                return JobTemplateModel(
-                    id=template.id,
-                    name=template.name,
-                    description=template.description,
-                    profile=template.profile,
-                    extra_vars=template.extraVars if template.extraVars else {},
-                    created_at=template.createdAt,
-                    updated_at=template.updatedAt,
-                )
-            return None
+            return template
 
     async def list_job_templates(self) -> List[JobTemplateModel]:
         """
@@ -109,18 +117,7 @@ class PrismaStorageBackend(StorageBackend):
                 order={"createdAt": "desc"}
             )
             
-            return [
-                JobTemplateModel(
-                    id=t.id,
-                    name=t.name,
-                    description=t.description,
-                    profile_path=t.profile,
-                    extra_vars=t.extraVars if t.extraVars else {},
-                    created_at=t.createdAt,
-                    updated_at=t.updatedAt,
-                )
-                for t in templates
-            ]
+            return templates
 
     async def delete_job_template(self, template_id: str) -> bool:
         """
@@ -151,17 +148,27 @@ class PrismaStorageBackend(StorageBackend):
             job: Job instance to save
         """
         async with get_db() as db:
+            # Handle extraVars - could be string or dict
+            extra_vars_data = job.extraVars
+            if isinstance(extra_vars_data, str):
+                try:
+                    extra_vars_data = json.loads(extra_vars_data)
+                except (json.JSONDecodeError, TypeError):
+                    extra_vars_data = {}
+            elif extra_vars_data is None:
+                extra_vars_data = {}
+            
             data = {
-                "templateId": job.template_id,
-                "templateName": job.template_name,
+                "templateId": job.templateId,
+                "templateName": job.templateName,
                 "status": job.status,
-                "target": job.target,
-                "extraVars": json.loads(json.dumps(job.extra_vars)) if job.extra_vars else {},
-                "stdout": job.stdout,
-                "stderr": job.stderr,
-                "exitCode": job.exit_code,
-                "startedAt": job.started_at,
-                "finishedAt": job.finished_at,
+                "target": job.target if hasattr(job, 'target') and job.target else None,
+                "extraVars": extra_vars_data,
+                "stdout": job.stdout if hasattr(job, 'stdout') else None,
+                "stderr": job.stderr if hasattr(job, 'stderr') else None,
+                "exitCode": job.exitCode if hasattr(job, 'exitCode') else None,
+                "startedAt": job.startedAt if hasattr(job, 'startedAt') else None,
+                "finishedAt": job.finishedAt if hasattr(job, 'finishedAt') else None,
             }
             
             existing = await db.job.find_unique(where={"id": job.id})
@@ -173,15 +180,40 @@ class PrismaStorageBackend(StorageBackend):
                 )
                 logger.debug(f"Updated job: {job.id}")
             else:
-                await db.job.create(
-                    data={
-                        "id": job.id,
-                        **data
-                    }
-                )
+                # Create new job - templateId is required FK field
+                create_data = {
+                    "id": job.id,
+                    "templateId": job.templateId,
+                    "templateName": job.templateName,
+                    "status": job.status,
+                    "createdAt": job.createdAt if hasattr(job, 'createdAt') else datetime.now(),
+                }
+                
+                # Add extraVars if it's not empty
+                if data["extraVars"] and data["extraVars"] != {}:
+                    create_data["extraVars"] = data["extraVars"]
+                
+                # Add optional fields only if they have values
+                if data["target"]:
+                    create_data["target"] = data["target"]
+                if data["stdout"]:
+                    create_data["stdout"] = data["stdout"]
+                if data["stderr"]:
+                    create_data["stderr"] = data["stderr"]
+                if data["exitCode"] is not None:
+                    create_data["exitCode"] = data["exitCode"]
+                if data["startedAt"]:
+                    create_data["startedAt"] = data["startedAt"]
+                if data["finishedAt"]:
+                    create_data["finishedAt"] = data["finishedAt"]
+                
+                logger.info(f"Creating job with data: {create_data}")
+                logger.info(f"extraVars: type={type(data['extraVars'])}, value={data['extraVars']}")
+                    
+                await db.job.create(data=create_data)
                 logger.debug(f"Created job: {job.id}")
 
-    async def get_job(self, job_id: str) -> Optional[JobModel]:
+    async def get_job(self, job_id: str) -> Optional:
         """
         Get a job by ID.
         
@@ -192,26 +224,9 @@ class PrismaStorageBackend(StorageBackend):
             Job if found, None otherwise
         """
         async with get_db() as db:
-            job = await db.job.find_unique(where={"id": job_id})
-            
-            if job:
-                return JobModel(
-                    id=job.id,
-                    template_id=job.templateId,
-                    template_name=job.templateName,
-                    status=job.status,
-                    target=job.target,
-                    extra_vars=job.extraVars if job.extraVars else {},
-                    stdout=job.stdout,
-                    stderr=job.stderr,
-                    exit_code=job.exitCode,
-                    started_at=job.startedAt,
-                    finished_at=job.finishedAt,
-                    created_at=job.createdAt,
-                )
-            return None
+            return await db.job.find_unique(where={"id": job_id})
 
-    async def list_jobs(self) -> List[JobModel]:
+    async def list_jobs(self) -> List:
         """
         List all jobs.
         
@@ -219,27 +234,9 @@ class PrismaStorageBackend(StorageBackend):
             List of Job instances
         """
         async with get_db() as db:
-            jobs = await db.job.find_many(
+            return await db.job.find_many(
                 order={"createdAt": "desc"}
             )
-            
-            return [
-                JobModel(
-                    id=j.id,
-                    template_id=j.templateId,
-                    template_name=j.templateName,
-                    status=j.status,
-                    target=j.target,
-                    extra_vars=j.extraVars if j.extraVars else {},
-                    stdout=j.stdout,
-                    stderr=j.stderr,
-                    exit_code=j.exitCode,
-                    started_at=j.startedAt,
-                    finished_at=j.finishedAt,
-                    created_at=j.createdAt,
-                )
-                for j in jobs
-            ]
 
     async def delete_job(self, job_id: str) -> bool:
         """
