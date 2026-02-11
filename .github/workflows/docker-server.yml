@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Docker image tag (leave empty for version from pyproject.toml)'
+        description: "Docker image tag (leave empty for version from pyproject.toml)"
         required: false
         type: string
   push:
@@ -13,11 +13,11 @@ on:
     branches:
       - main
     paths:
-      - 'Dockerfile.server'
-      - 'lib/**'
-      - 'pyproject.toml'
-      - 'schema.prisma'
-      - 'docker-entrypoint.sh'
+      - "Dockerfile.server"
+      - "lib/**"
+      - "pyproject.toml"
+      - "schema.prisma"
+      - "docker-entrypoint.sh"
 
 env:
   IMAGE_NAME: ansible-inspec
@@ -59,17 +59,18 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to Docker Hub
+      - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          username: ${{ vars.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ vars.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}
+          images: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=${{ steps.version.outputs.version }}
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
@@ -99,31 +100,28 @@ jobs:
       - name: Test server image
         run: |
           echo "Testing server image..."
-          docker pull ${{ vars.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+          docker pull ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
           
           # Test that required binaries exist
-          docker run --rm --entrypoint /bin/sh ${{ vars.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} -c "which ansible-inspec"
-          docker run --rm --entrypoint /bin/sh ${{ vars.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} -c "which prisma"
-          docker run --rm --entrypoint /bin/sh ${{ vars.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} -c "which uvicorn"
-          docker run --rm --entrypoint /bin/sh ${{ vars.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} -c "which inspec"
-          
-          echo "✅ All required binaries found"
-
+          docker run --rm --entrypoint /bin/sh ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} -c "which ansible-inspec"
+          docker run --rm --entrypoint /bin/sh ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} -c "which prisma"
+          docker run --rm --entrypoint /bin/sh ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} -c "which uvicorn"
+          docker run --rm --entrypoint /bin/sh ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} -c "which inspec"
       - name: Create release summary
         run: |
           cat >> $GITHUB_STEP_SUMMARY << EOF
           ## 🐳 Docker Server Image Built Successfully
-          
+
           **Image:** \`${{ vars.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}\`
-          
+
           **Tags:**
           $(echo '${{ steps.meta.outputs.tags }}' | sed 's/^/- /')
-          
+
           **Pull command:**
           \`\`\`bash
           docker pull ${{ vars.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
           \`\`\`
-          
+
           **Run server:**
           \`\`\`bash
           docker run -p 8080:8080 \\
@@ -131,7 +129,7 @@ jobs:
             -e JWT_SECRET_KEY="your-secret" \\
             ${{ vars.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
           \`\`\`
-          
+
           **Kubernetes deployment:**
           \`\`\`bash
           helm upgrade ansible-inspec ./helm/ansible-inspec \\
@@ -169,10 +167,10 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ vars.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+          image-ref: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
           format: "sarif"
           output: "trivy-results.sarif"
-          severity: 'CRITICAL,HIGH'
+          severity: "CRITICAL,HIGH"
 
       - name: Upload Trivy results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
@@ -183,6 +181,6 @@ jobs:
       - name: Run Trivy for summary
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ vars.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+          image-ref: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
           format: "table"
-          severity: 'CRITICAL,HIGH'
+          severity: "CRITICAL,HIGH"

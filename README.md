@@ -5,8 +5,7 @@
 [![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)](https://pypi.org/project/ansible-inspec/)
 [![Helm Chart](https://img.shields.io/badge/helm-v0.2.6-blue)](https://htunn.github.io/ansible-inspec/helm)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/ansible-inspec)](https://artifacthub.io/packages/search?repo=ansible-inspec)
-[![Docker Image Version](https://img.shields.io/docker/v/htunnthuthu/ansible-inspec?label=docker)](https://hub.docker.com/r/htunnthuthu/ansible-inspec)
-[![Docker Pulls](https://img.shields.io/docker/pulls/htunnthuthu/ansible-inspec)](https://hub.docker.com/r/htunnthuthu/ansible-inspec)
+[![GitHub Container Registry](https://img.shields.io/badge/ghcr.io-htunn%2Fansible--inspec-blue)](https://github.com/Htunn/ansible-inspec/pkgs/container/ansible-inspec)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 
 ---
@@ -418,10 +417,10 @@ ansible-inspec convert ./my-profile -o ./collections
 
 ```bash
 # Pull the latest image
-docker pull htunnthuthu/ansible-inspec:latest
+docker pull ghcr.io/htunn/ansible-inspec:latest
 
 # Run with help
-docker run --rm htunnthuthu/ansible-inspec:latest --help
+docker run --rm ghcr.io/htunn/ansible-inspec:latest --help
 ```
 
 See [Docker Usage Guide](docs/DOCKER.md) for detailed Docker instructions.
@@ -796,19 +795,19 @@ This project builds upon two excellent open-source projects:
 
 ```bash
 # Initialize a new InSpec profile
-docker run --rm -v $(pwd):/workspace htunnthuthu/ansible-inspec:latest \
+docker run --rm -v $(pwd):/workspace ghcr.io/htunn/ansible-inspec:latest \
   init profile my-compliance-tests
 
 # Run compliance tests with Ansible inventory
 docker run --rm \
   -v $(pwd):/workspace \
   -v ~/.ssh:/home/ansibleinspec/.ssh:ro \
-  htunnthuthu/ansible-inspec:latest \
+  ghcr.io/htunn/ansible-inspec:latest \
   exec /workspace/profiles/cis-benchmark \
   -i /workspace/inventory.yml
 
 # Available tags: latest, v0.1.0, v0.2.0, etc.
-docker run --rm htunnthuthu/ansible-inspec:v0.1.0 --version
+docker run --rm ghcr.io/htunn/ansible-inspec:v0.1.0 --version
 ```
 
 See [Docker Usage Guide](docs/DOCKER.md) for more examples.

@@ -55,7 +55,7 @@ The following table lists the configurable parameters and their default values.
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `replicaCount` | Number of replicas | `2` |
-| `image.repository` | Image repository | `htunnthuthu/ansible-inspec` |
+| `image.repository` | Image repository | `ghcr.io/htunn/ansible-inspec` |
 | `image.tag` | Image tag | `0.2.6` |
 | `image.pullPolicy` | Image pull policy | `IfNotPresent` |
 | `service.type` | Service type | `ClusterIP` |
