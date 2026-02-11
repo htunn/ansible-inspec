@@ -22,7 +22,6 @@ WORKDIR /app
 # Copy project files
 COPY pyproject.toml README.md LICENSE NOTICE schema.prisma ./
 COPY lib/ lib/
-COPY bin/ bin/
 
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
@@ -67,11 +66,7 @@ COPY --from=builder /usr/local/bin/uvicorn /usr/local/bin/uvicorn
 COPY --from=builder /app/schema.prisma /app/schema.prisma
 
 # Copy entrypoint script
-COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-
-# Copy Prisma binaries and set permissions
-COPY --from=builder --chown=ansibleinspec:ansibleinspec /tmp/prisma-binaries/prisma-python /home/ansibleinspec/.cache/prisma-python
+COPY dofrom=builder --chown=ansibleinspec:ansibleinspec /tmp/prisma-binaries/prisma-python /home/ansibleinspec/.cache/prisma-python
 
 # Set user and working directory
 USER ansibleinspec
@@ -87,8 +82,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD curl -f http://localhost:8080/health || exit 1
 
-# Use entrypoint to run migrations before starting
-ENTRYPOINT ["docker-entrypoint.sh"]
-
 # Default command - run API server
-CMD ["uvicorn", "ansible_inspec.server:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["ansible-inspec", "start-server", "--host", "0.0.0.0", "--port", "8080"]
