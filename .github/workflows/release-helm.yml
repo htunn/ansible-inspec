@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Chart version to release (leave empty to use Chart.yaml version)'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -29,10 +35,19 @@ jobs:
         with:
           version: 'v3.14.0'
 
-      - name: Extract version from tag
+      - name: Extract version from tag or input
         id: get_version
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
+          if [ "${{ github.event_name }}" = "push" ]; then
+            # Tag push: extract version from tag
+            VERSION=${GITHUB_REF#refs/tags/v}
+          elif [ -n "${{ inputs.version }}" ]; then
+            # Manual dispatch with version input
+            VERSION="${{ inputs.version }}"
+          else
+            # Manual dispatch without input: read from Chart.yaml
+            VERSION=$(grep '^version:' helm/ansible-inspec/Chart.yaml | awk '{print $2}' | tr -d '"')
+          fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "📦 Releasing Helm chart version: $VERSION"
 
