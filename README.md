@@ -10,8 +10,6 @@
 ---
 A compliance and infrastructure testing tool that **converts InSpec profiles to native Ansible collections**, enabling compliance testing through pure Ansible without requiring InSpec on target systems.
 
-**✨ NEW in v0.4.0**: Enterprise features - Azure AD Authentication, PostgreSQL Database, VCS Sync!
-
 ## Overview
 
 `ansible-inspec` bridges two powerful open-source projects:
@@ -25,7 +23,7 @@ A compliance and infrastructure testing tool that **converts InSpec profiles to 
 
 Ansible-InSpec provides **true InSpec-to-Ansible migration**, giving you:
 
-#### 🔐 **Enterprise Security (NEW in v0.4.0)**
+#### 🔐 **Enterprise Security**
 - **🔑 Azure AD OAuth2**: Enterprise SSO with role-based access control
 - **🔒 Encrypted Credentials**: Fernet symmetric encryption for VCS credentials
 - **👥 Multi-User Support**: User authentication and authorization with local accounts
@@ -33,13 +31,13 @@ Ansible-InSpec provides **true InSpec-to-Ansible migration**, giving you:
 - **🔐 Session Persistence**: 7-day token expiry with automatic session restoration
 - **🍪 Secure Cookies**: HTTP-only cookies with configurable security settings
 
-#### 💾 **Production-Ready Storage (NEW in v0.4.0)**
+#### 💾 **Production-Ready Storage**
 - **🗄️ PostgreSQL Database**: Scalable database backend with connection pooling
 - **🔄 Hybrid Storage**: Dual-write validation mode for safe migration
 - **📈 Monitoring**: Prometheus metrics for storage operations
 - **🔁 Automatic Cutover**: Validated transition from file to database storage
 
-#### 🔄 **Version Control Integration (NEW in v0.4.0)**
+#### 🔄 **Version Control Integration**
 - **📦 Git Repository Sync**: Automatic sync of InSpec profiles from GitHub/GitLab
 - **⏱️ Polling & Webhooks**: Both periodic polling and event-driven sync
 - **🔐 Secure Credentials**: Encrypted SSH keys and tokens
@@ -127,7 +125,7 @@ v0.2.0+ translates these InSpec resources to **native Ansible**:
 
 ## Features
 
-### 🌐 Server Features (NEW in v0.4.0)
+### 🌐 Server Features
 
 - **🔐 Enterprise Security**
   - Azure AD OAuth2 authentication with SSO

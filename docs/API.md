@@ -2,7 +2,9 @@
 
 Complete API reference for ansible-inspec library and CLI.
 
-**Latest Update (v0.2.5):** Fixed critical missing import statements that caused NameError in v0.2.4. All translator files now properly import `re` module for variable name sanitization.
+**Latest Update (v0.2.6):** Version bump with documentation improvements.
+
+**v0.2.5:** Fixed critical missing import statements that caused NameError in v0.2.4. All translator files now properly import `re` module for variable name sanitization.
 
 **v0.2.4:** Added missing error handling and result tracking to assertion tasks. All assert tasks now include `ignore_errors: True` and `register` fields, enabling full compliance scans without early abortion and proper result collection for reporting.
 
@@ -16,6 +18,15 @@ Complete API reference for ansible-inspec library and CLI.
 
 - [Installation](#installation)
 - [CLI Reference](#cli-reference)
+- [REST API Server](#rest-api-server)
+  - [Authentication](#authentication-endpoints)
+  - [Job Templates](#job-template-endpoints)
+  - [Jobs](#job-endpoints)
+  - [VCS Credentials](#vcs-credential-endpoints)
+  - [VCS Repositories](#vcs-repository-endpoints)
+  - [Webhooks](#webhook-endpoints)
+  - [User Management](#user-management-endpoints)
+  - [Monitoring](#monitoring-endpoints)
 - [Python API](#python-api)
 - [Core Classes](#core-classes)
 - [Reporters](#reporters)
@@ -241,6 +252,1045 @@ ansible-inspec supermarket download dev-sec/linux-baseline
 # Download to specific directory
 ansible-inspec supermarket download dev-sec/linux-baseline \
   --output-dir /tmp/profiles
+```
+
+---
+
+## REST API Server
+
+The ansible-inspec server provides a production-ready REST API for managing compliance testing workflows, VCS integration, and user authentication.
+
+### Base URL
+
+```
+http://localhost:8080/api/v1
+```
+
+### Starting the Server
+
+```bash
+# Using Docker Compose (recommended)
+docker-compose up -d
+
+# Using Python directly
+uvicorn ansible_inspec.server.api:app --host 0.0.0.0 --port 8080
+
+# With environment variables
+export DATABASE_URL="postgresql://user:pass@localhost:5432/ansibleinspec"
+export JWT_SECRET="your-secret-key"
+export ENCRYPTION_KEY="your-encryption-key"
+uvicorn ansible_inspec.server.api:app --reload
+```
+
+### Authentication
+
+The API supports two authentication methods:
+1. **Azure AD OAuth2** - Enterprise SSO (recommended for production)
+2. **Password-based** - Local username/password authentication
+
+All endpoints (except health check and auth endpoints) require authentication via JWT bearer tokens.
+
+**Authorization Header:**
+```
+Authorization: Bearer <jwt_token>
+```
+
+### Role-Based Access Control (RBAC)
+
+- **admin** - Full access to all endpoints including user management
+- **operator** - Can manage job templates, jobs, and VCS repositories
+- **viewer** - Read-only access to jobs and templates
+
+---
+
+### Authentication Endpoints
+
+#### GET /health
+
+Health check endpoint (no authentication required).
+
+**Response:**
+```json
+{
+  "status": "healthy",
+  "version": "0.2.6",
+  "storage_backend": "database",
+  "database": "connected",
+  "auth_enabled": true,
+  "vcs_enabled": true
+}
+```
+
+#### GET /api/v1
+
+API information endpoint.
+
+**Response:**
+```json
+{
+  "name": "Ansible-InSpec API",
+  "version": "0.2.6",
+  "endpoints": {
+    "job_templates": "/api/v1/job-templates",
+    "jobs": "/api/v1/jobs",
+    "workflows": "/api/v1/workflows",
+    "users": "/api/v1/users",
+    "vcs_credentials": "/api/v1/vcs/credentials",
+    "vcs_repositories": "/api/v1/vcs/repositories",
+    "auth": "/api/v1/auth"
+  }
+}
+```
+
+#### GET /api/v1/auth/login
+
+Redirect to Azure AD OAuth2 login page.
+
+**Response:**
+- 302 Redirect to Microsoft login page
+
+#### POST /api/v1/auth/password-login
+
+Login with username and password.
+
+**Request Body:**
+```json
+{
+  "username": "admin",
+  "password": "your-password"
+}
+```
+
+**Response:**
+```json
+{
+  "access_token": "eyJhbGci...",
+  "refresh_token": "eyJhbGci...",
+  "token_type": "bearer",
+  "expires_in": 3600,
+  "user": {
+    "id": "user-123",
+    "username": "admin",
+    "email": "admin@example.com",
+    "roles": ["admin"]
+  }
+}
+```
+
+**Status Codes:**
+- 200: Success
+- 401: Invalid credentials
+
+#### GET /api/v1/auth/callback
+
+OAuth2 callback endpoint for Azure AD authentication.
+
+**Query Parameters:**
+- `code` - Authorization code from Azure AD
+- `state` - State parameter for CSRF protection
+
+**Response:**
+```json
+{
+  "access_token": "eyJhbGci...",
+  "refresh_token": "eyJhbGci...",
+  "token_type": "bearer",
+  "expires_in": 3600
+}
+```
+
+#### GET /api/v1/auth/me
+
+Get current authenticated user information.
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "id": "user-123",
+  "username": "admin",
+  "email": "admin@example.com",
+  "name": "Administrator",
+  "roles": ["admin"],
+  "active": true,
+  "last_login": "2026-02-11T10:30:00Z"
+}
+```
+
+**Status Codes:**
+- 200: Success
+- 401: Unauthorized
+
+#### POST /api/v1/auth/logout
+
+Logout current user and invalidate token.
+
+**Response:**
+```json
+{
+  "message": "Logged out successfully"
+}
+```
+
+---
+
+### Job Template Endpoints
+
+#### GET /api/v1/job-templates
+
+List all job templates.
+
+**Query Parameters:**
+- `limit` (int, optional): Maximum results (default: 100)
+- `offset` (int, optional): Pagination offset (default: 0)
+
+**Required Role:** viewer
+
+**Response:**
+```json
+{
+  "count": 2,
+  "results": [
+    {
+      "id": "template-123",
+      "name": "linux-baseline",
+      "description": "DevSec Linux Baseline",
+      "profile": "dev-sec/linux-baseline",
+      "extra_vars": {},
+      "vcs_repo_id": null,
+      "created_at": "2026-02-11T10:00:00Z",
+      "updated_at": "2026-02-11T10:00:00Z"
+    }
+  ]
+}
+```
+
+#### POST /api/v1/job-templates
+
+Create a new job template.
+
+**Required Role:** operator
+
+**Request Body:**
+```json
+{
+  "name": "linux-baseline",
+  "description": "DevSec Linux Baseline compliance check",
+  "profile": "dev-sec/linux-baseline",
+  "extra_vars": {
+    "check_level": "critical"
+  },
+  "vcs_repo_id": "repo-456",
+  "vcs_path": "profiles/linux-baseline",
+  "vcs_sync": true
+}
+```
+
+**Response:**
+```json
+{
+  "id": "template-123",
+  "name": "linux-baseline",
+  "description": "DevSec Linux Baseline compliance check",
+  "profile": "dev-sec/linux-baseline",
+  "extra_vars": {"check_level": "critical"},
+  "created_at": "2026-02-11T10:00:00Z"
+}
+```
+
+**Status Codes:**
+- 201: Created
+- 400: Invalid input
+- 401: Unauthorized
+- 403: Forbidden
+
+#### GET /api/v1/job-templates/{template_id}
+
+Get a specific job template by ID.
+
+**Required Role:** viewer
+
+**Response:**
+```json
+{
+  "id": "template-123",
+  "name": "linux-baseline",
+  "description": "DevSec Linux Baseline",
+  "profile": "dev-sec/linux-baseline",
+  "extra_vars": {},
+  "vcs_repo_id": null,
+  "vcs_path": null,
+  "vcs_sync": false,
+  "created_at": "2026-02-11T10:00:00Z",
+  "updated_at": "2026-02-11T10:00:00Z"
+}
+```
+
+**Status Codes:**
+- 200: Success
+- 404: Template not found
+
+#### PUT /api/v1/job-templates/{template_id}
+
+Update a job template.
+
+**Required Role:** operator
+
+**Request Body:**
+```json
+{
+  "name": "updated-name",
+  "description": "Updated description",
+  "profile": "new-profile-path",
+  "extra_vars": {"new_var": "value"}
+}
+```
+
+**Response:**
+```json
+{
+  "id": "template-123",
+  "name": "updated-name",
+  "description": "Updated description",
+  "updated_at": "2026-02-11T11:00:00Z"
+}
+```
+
+**Status Codes:**
+- 200: Success
+- 404: Template not found
+- 400: Invalid input
+
+#### DELETE /api/v1/job-templates/{template_id}
+
+Delete a job template.
+
+**Required Role:** admin
+
+**Status Codes:**
+- 204: No Content (success)
+- 404: Template not found
+
+#### POST /api/v1/job-templates/{template_id}/launch
+
+Launch a job from a template.
+
+**Required Role:** operator
+
+**Request Body:**
+```json
+{
+  "target": "production-servers",
+  "extra_vars": {
+    "override_var": "value"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "id": "job-789",
+  "template_id": "template-123",
+  "status": "running",
+  "created_at": "2026-02-11T11:00:00Z"
+}
+```
+
+**Status Codes:**
+- 201: Created
+- 404: Template not found
+
+---
+
+### Job Endpoints
+
+#### GET /api/v1/jobs
+
+List all jobs with optional filtering.
+
+**Query Parameters:**
+- `limit` (int): Maximum results (default: 100)
+- `offset` (int): Pagination offset (default: 0)
+- `status` (string): Filter by status (pending, running, completed, failed)
+- `template_id` (string): Filter by template ID
+
+**Required Role:** viewer
+
+**Response:**
+```json
+{
+  "count": 5,
+  "results": [
+    {
+      "id": "job-789",
+      "template_id": "template-123",
+      "status": "completed",
+      "target": "production-servers",
+      "started_at": "2026-02-11T11:00:00Z",
+      "finished_at": "2026-02-11T11:05:00Z",
+      "duration_seconds": 300,
+      "controls_passed": 45,
+      "controls_failed": 3,
+      "controls_total": 48
+    }
+  ]
+}
+```
+
+#### POST /api/v1/jobs
+
+Create and execute a new job.
+
+**Required Role:** operator
+
+**Request Body:**
+```json
+{
+  "template_id": "template-123",
+  "target": "production-servers",
+  "extra_vars": {
+    "custom_var": "value"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "id": "job-789",
+  "template_id": "template-123",
+  "status": "running",
+  "created_at": "2026-02-11T11:00:00Z"
+}
+```
+
+**Status Codes:**
+- 201: Created
+- 404: Template not found
+
+#### GET /api/v1/jobs/{job_id}
+
+Get detailed job information and results.
+
+**Required Role:** viewer
+
+**Response:**
+```json
+{
+  "id": "job-789",
+  "template_id": "template-123",
+  "template_name": "linux-baseline",
+  "status": "completed",
+  "target": "production-servers",
+  "started_at": "2026-02-11T11:00:00Z",
+  "finished_at": "2026-02-11T11:05:00Z",
+  "duration_seconds": 300,
+  "result": {
+    "controls_passed": 45,
+    "controls_failed": 3,
+    "controls_skipped": 0,
+    "controls_total": 48,
+    "compliance_percentage": 93.75,
+    "controls": [
+      {
+        "id": "ssh-1",
+        "title": "SSH Protocol Version",
+        "status": "passed",
+        "impact": 1.0,
+        "results": []
+      }
+    ]
+  }
+}
+```
+
+**Status Codes:**
+- 200: Success
+- 404: Job not found
+
+---
+
+### VCS Credential Endpoints
+
+#### POST /api/v1/vcs/credentials
+
+Create a new VCS credential for repository authentication.
+
+**Required Role:** admin
+
+**Request Body:**
+```json
+{
+  "name": "github-token",
+  "vcs_type": "github",
+  "token": "ghp_xxxxxxxxxxxx",
+  "repository_url": "https://github.com/org/repo"
+}
+```
+
+**Alternative with SSH:**
+```json
+{
+  "name": "gitlab-ssh",
+  "vcs_type": "gitlab",
+  "ssh_private_key": "-----BEGIN PRIVATE KEY-----\n...",
+  "repository_url": "git@gitlab.com:org/repo.git"
+}
+```
+
+**Alternative with username/password:**
+```json
+{
+  "name": "bitbucket-creds",
+  "vcs_type": "bitbucket",
+  "username": "user@example.com",
+  "password": "app-password",
+  "repository_url": "https://bitbucket.org/org/repo"
+}
+```
+
+**Response:**
+```json
+{
+  "id": "cred-456",
+  "name": "github-token",
+  "vcs_type": "github",
+  "username": null
+}
+```
+
+**Note:** Credentials are encrypted at rest using Fernet symmetric encryption.
+
+**Status Codes:**
+- 201: Created
+- 501: Encryption not configured
+
+#### GET /api/v1/vcs/credentials
+
+List all VCS credentials (without showing sensitive data).
+
+**Required Role:** operator
+
+**Response:**
+```json
+{
+  "count": 2,
+  "results": [
+    {
+      "id": "cred-456",
+      "name": "github-token", "vcs_type": "github",
+      "username": null
+    },
+    {
+      "id": "cred-789",
+      "name": "gitlab-ssh",
+      "vcs_type": "gitlab",
+      "username": "git"
+    }
+  ]
+}
+```
+
+#### DELETE /api/v1/vcs/credentials/{credential_id}
+
+Delete a VCS credential.
+
+**Required Role:** admin
+
+**Status Codes:**
+- 204: No Content (success)
+- 404: Credential not found
+
+---
+
+### VCS Repository Endpoints
+
+#### POST /api/v1/vcs/repositories
+
+Register a VCS repository for automatic profile synchronization.
+
+**Required Role:** admin
+
+**Request Body:**
+```json
+{
+  "name": "compliance-profiles",
+  "url": "https://github.com/org/compliance-profiles.git",
+  "branch": "main",
+  "credential_id": "cred-456",
+  "poll_interval": 300,
+  "profile_path": "inspec",
+  "auto_import": true
+}
+```
+
+**Response:**
+```json
+{
+  "id": "repo-123",
+  "name": "compliance-profiles",
+  "url": "https://github.com/org/compliance-profiles.git",
+  "branch": "main",
+  "auto_import": true
+}
+```
+
+**Status Codes:**
+- 201: Created
+- 400: Repository already exists
+- 501: VCS not enabled
+
+#### GET /api/v1/vcs/repositories
+
+List all registered VCS repositories.
+
+**Required Role:** operator
+
+**Response:**
+```json
+{
+  "count": 1,
+  "results": [
+    {
+      "id": "repo-123",
+      "name": "compliance-profiles",
+      "url": "https://github.com/org/compliance-profiles.git",
+      "branch": "main",
+      "sync_status": "completed",
+      "last_sync_at": "2026-02-11T10:00:00Z",
+      "last_commit": "abc123def456",
+      "auto_import": true
+    }
+  ]
+}
+```
+
+#### POST /api/v1/vcs/repositories/{repo_name}/sync
+
+Manually trigger repository synchronization.
+
+**Required Role:** operator
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Repository sync triggered",
+  "sync_id": "sync-789"
+}
+```
+
+**Status Codes:**
+- 200: Success
+- 404: Repository not found
+- 501: VCS not enabled
+
+#### DELETE /api/v1/vcs/repositories/{repo_name}
+
+Delete a VCS repository configuration (does not delete synced profiles).
+
+**Required Role:** admin
+
+**Status Codes:**
+- 204: No Content (success)
+- 404: Repository not found
+
+#### GET /api/v1/vcs/repositories/{repo_name}/history
+
+Get synchronization history for a repository.
+
+**Query Parameters:**
+- `limit` (int): Maximum results (default: 50)
+
+**Required Role:** viewer
+
+**Response:**
+```json
+{
+  "repository": "compliance-profiles",
+  "count": 10,
+  "results": [
+    {
+      "id": "sync-789",
+      "syncStartedAt": "2026-02-11T10:00:00Z",
+      "syncCompletedAt": "2026-02-11T10:02:00Z",
+      "status": "completed",
+      "commitHash": "abc123def456",
+      "profilesDiscovered": 5,
+      "templatesCreated": 5,
+      "errors": null,
+      "triggeredBy": "admin",
+      "triggerType": "manual",
+      "duration_seconds": 120
+    }
+  ]
+}
+```
+
+#### GET /api/v1/vcs/repositories/{repo_name}/files
+
+List all files in a synced repository.
+
+**Required Role:** viewer
+
+**Response:**
+```json
+{
+  "repository": "compliance-profiles",
+  "count": 25,
+  "files": [
+    "README.md",
+    "inspec/linux-baseline/inspec.yml",
+    "inspec/linux-baseline/controls/01_baseline.rb",
+    "inspec/windows-baseline/inspec.yml"
+  ]
+}
+```
+
+**Status Codes:**
+- 200: Success
+- 400: Repository not synced yet
+- 404: Repository not found
+
+#### GET /api/v1/vcs/repositories/{repo_name}/files/{file_path}
+
+Get content of a specific file from a synced repository.
+
+**Required Role:** viewer
+
+**Response:**
+```json
+{
+  "repository": "compliance-profiles",
+  "file_path": "inspec/linux-baseline/inspec.yml",
+  "content": "name: linux-baseline\ntitle: DevSec Linux Baseline\nversion: 2.8.0\n...",
+  "size": 512
+}
+```
+
+**Status Codes:**
+- 200: Success
+- 400: Invalid file path or binary file
+- 404: File not found
+
+---
+
+### Webhook Endpoints
+
+#### POST /api/v1/webhooks/github/{repo_name}
+
+GitHub webhook handler for push events.
+
+**Headers:**
+```
+X-Hub-Signature-256: sha256=<signature>
+X-GitHub-Event: push
+```
+
+**Request Body:** GitHub webhook payload
+
+**Response:**
+```json
+{
+  "message": "Repository sync triggered",
+  "status": "success",
+  "repository": "compliance-profiles",
+  "commit": "abc123def456"
+}
+```
+
+**Status Codes:**
+- 200: Success
+- 401: Invalid signature
+- 501: Webhooks not enabled
+
+**Configuration:**
+1. Go to repository Settings → Webhooks
+2. Add webhook URL: `http://your-server:8080/api/v1/webhooks/github/{repo_name}`
+3. Content type: `application/json`
+4. Secret: Set `WEBHOOK_SECRET` environment variable
+5. Events: Select "Just the push event"
+
+#### POST /api/v1/webhooks/gitlab/{repo_name}
+
+GitLab webhook handler for push events.
+
+**Headers:**
+```
+X-Gitlab-Token: <secret>
+```
+
+**Request Body:** GitLab webhook payload
+
+**Response:**
+```json
+{
+  "message": "Repository sync triggered",
+  "status": "success",
+  "repository": "compliance-profiles",
+  "commit": "abc123def456"
+}
+```
+
+**Status Codes:**
+- 200: Success
+- 401: Invalid token
+- 501: Webhooks not enabled
+
+**Configuration:**
+1. Go to repository Settings → Webhooks
+2. Add webhook URL: `http://your-server:8080/api/v1/webhooks/gitlab/{repo_name}`
+3. Secret token: Set `WEBHOOK_SECRET` environment variable
+4. Trigger: Select "Push events"
+
+---
+
+### User Management Endpoints
+
+#### GET /api/v1/users
+
+List all users (admin only).
+
+**Required Role:** admin
+
+**Response:**
+```json
+{
+  "count": 3,
+  "results": [
+    {
+      "id": "user-123",
+      "username": "admin",
+      "email": "admin@example.com",
+      "name": "Administrator",
+      "roles": ["admin"],
+      "active": true,
+      "last_login": "2026-02-11T10:00:00Z"
+    }
+  ]
+}
+```
+
+#### PUT /api/v1/users/{user_id}
+
+Update user roles and status (admin only).
+
+**Required Role:** admin
+
+**Request Body:**
+```json
+{
+  "roles": ["operator", "viewer"],
+  "active": true
+}
+```
+
+**Response:**
+```json
+{
+  "id": "user-123",
+  "username": "operator1",
+  "roles": ["operator", "viewer"],
+  "active": true
+}
+```
+
+**Status Codes:**
+- 200: Success
+- 404: User not found
+
+---
+
+### Monitoring Endpoints
+
+#### GET /api/v1/storage/validation-status
+
+Get hybrid storage validation status (admin only, hybrid mode only).
+
+**Required Role:** admin
+
+**Response:**
+```json
+{
+  "mode": "validation",
+  "validation_days_remaining": 25,
+  "validation_period_days": 30,
+  "auto_cutover_enabled": true,
+  "operations_validated": 1250,
+  "validation_failures": 0,
+  "last_validation_check": "2026-02-11T10:00:00Z"
+}
+```
+
+**Status Codes:**
+- 200: Success
+- 400: Not using hybrid storage
+
+#### GET /metrics
+
+Prometheus metrics endpoint (no authentication required).
+
+**Response:** Prometheus text format
+
+```
+# HELP ansible_inspec_storage_operations_total Total number of storage operations
+# TYPE ansible_inspec_storage_operations_total counter
+ansible_inspec_storage_operations_total{backend="database",operation="save"} 145
+ansible_inspec_storage_operations_total{backend="database",operation="get"} 892
+
+# HELP ansible_inspec_storage_operation_duration_seconds Storage operation duration
+# TYPE ansible_inspec_storage_operation_duration_seconds histogram
+ansible_inspec_storage_operation_duration_seconds_bucket{backend="database",operation="save",le="0.1"} 142
+
+# HELP ansible_inspec_auth_requests_total Total authentication requests
+# TYPE ansible_inspec_auth_requests_total counter
+ansible_inspec_auth_requests_total{provider="azure_ad",status="success"} 45
+```
+
+---
+
+### API Examples
+
+#### Complete Workflow Example
+
+```bash
+# 1. Login
+curl -X POST http://localhost:8080/api/v1/auth/password-login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"secret"}' | jq -r '.access_token' > token.txt
+
+TOKEN=$(cat token.txt)
+
+# 2. Create VCS credential
+curl -X POST http://localhost:8080/api/v1/vcs/credentials \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "github-token",
+    "vcs_type": "github",
+    "token": "ghp_xxxxxxxxxxxx"
+  }'
+
+# 3. Register repository
+curl -X POST http://localhost:8080/api/v1/vcs/repositories \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "compliance-profiles",
+    "url": "https://github.com/org/compliance-profiles.git",
+    "branch": "main",
+    "credential_id": "cred-456",
+    "auto_import": true
+  }'
+
+# 4. Trigger manual sync
+curl -X POST http://localhost:8080/api/v1/vcs/repositories/compliance-profiles/sync \
+  -H "Authorization: Bearer $TOKEN"
+
+# 5. List job templates (auto-created from sync)
+curl -X GET http://localhost:8080/api/v1/job-templates \
+  -H "Authorization: Bearer $TOKEN"
+
+# 6. Launch job
+curl -X POST http://localhost:8080/api/v1/job-templates/template-123/launch \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "target": "production-servers",
+    "extra_vars": {}
+  }'
+
+# 7. Check job status
+curl -X GET http://localhost:8080/api/v1/jobs/job-789 \
+  -H "Authorization: Bearer $TOKEN"
+
+# 8. View job results
+curl -X GET http://localhost:8080/api/v1/jobs/job-789 \
+  -H "Authorization: Bearer $TOKEN" | jq '.result'
+```
+
+#### Python Client Example
+
+```python
+import requests
+
+class AnsibleInSpecClient:
+    def __init__(self, base_url, username, password):
+        self.base_url = base_url
+        self.token = None
+        self.login(username, password)
+    
+    def login(self, username, password):
+        """Login and store token"""
+        response = requests.post(
+            f"{self.base_url}/api/v1/auth/password-login",
+            json={"username": username, "password": password}
+        )
+        response.raise_for_status()
+        self.token = response.json()["access_token"]
+    
+    def _headers(self):
+        return {"Authorization": f"Bearer {self.token}"}
+    
+    def create_job_template(self, name, profile, description=""):
+        """Create a job template"""
+        response = requests.post(
+            f"{self.base_url}/api/v1/job-templates",
+            headers=self._headers(),
+            json={
+                "name": name,
+                "profile": profile,
+                "description": description
+            }
+        )
+        response.raise_for_status()
+        return response.json()
+    
+    def launch_job(self, template_id, target="localhost"):
+        """Launch a job from template"""
+        response = requests.post(
+            f"{self.base_url}/api/v1/job-templates/{template_id}/launch",
+            headers=self._headers(),
+            json={"target": target}
+        )
+        response.raise_for_status()
+        return response.json()
+    
+    def get_job(self, job_id):
+        """Get job details"""
+        response = requests.get(
+            f"{self.base_url}/api/v1/jobs/{job_id}",
+            headers=self._headers()
+        )
+        response.raise_for_status()
+        return response.json()
+
+# Usage
+client = AnsibleInSpecClient(
+    "http://localhost:8080",
+    username="admin",
+    password="secret"
+)
+
+# Create template
+template = client.create_job_template(
+    name="linux-baseline",
+    profile="dev-sec/linux-baseline",
+    description="DevSec Linux Baseline"
+)
+
+# Launch job
+job = client.launch_job(template["id"], target="production-servers")
+
+# Check results
+result = client.get_job(job["id"])
+print(f"Status: {result['status']}")
+print(f"Compliance: {result['result']['compliance_percentage']}%")
 ```
 
 ---

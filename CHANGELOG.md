@@ -7,6 +7,119 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.6] - 2026-02-11
+
+### Changed
+- Version bump with documentation improvements
+- Updated API version references across codebase
+- Improved documentation consistency
+
+### Fixed
+- Documentation version references updated
+- Package metadata synchronized
+
+
+### 🚀 Major Release: Enterprise Features & Production Ready
+
+This release transforms ansible-inspec into a production-ready enterprise compliance automation platform with authentication, database storage, and version control integration.
+
+### Added
+
+#### 🔐 Enterprise Authentication
+- **Azure AD OAuth2 Integration**: Enterprise SSO with role-based access control (RBAC)
+- **Local Username/Password Authentication**: Fallback authentication for non-SSO environments
+- **JWT Token Management**: Secure session management with configurable expiry
+- **Role-Based Access Control**: Admin, Operator, and Viewer roles
+- **Audit Logging**: Comprehensive audit trail for all user actions
+- **Session Persistence**: 7-day refresh tokens with automatic renewal
+
+#### 💾 Production Database Storage
+- **PostgreSQL Backend**: Scalable database storage with Prisma ORM
+- **Hybrid Storage Mode**: Dual-write validation for safe migration from file to database
+- **File Storage Fallback**: Maintain backwards compatibility
+- **Connection Pooling**: Optimized database connections
+- **Automatic Migrations**: Database schema management via Prisma
+
+#### 🔄 Version Control System (VCS) Integration
+- **Git Repository Sync**: Automatic synchronization from GitHub/GitLab/Bitbucket
+- **Encrypted Credentials**: Fernet symmetric encryption for SSH keys and tokens
+- **Polling & Webhooks**: Both scheduled polling and event-driven sync
+- **Auto-Import Profiles**: Automatically create job templates from synced repositories
+- **Webhook Support**: GitHub and GitLab webhook integration for instant updates
+
+#### 🎯 Enhanced REST API
+- **20+ REST Endpoints**: Complete API for job templates, jobs, workflows, and VCS
+- **OpenAPI/Swagger Documentation**: Interactive API documentation
+- **Job Template Management**: CRUD operations for compliance job templates
+- **Job Execution API**: Launch, monitor, and retrieve job results
+- **VCS Management API**: Manage repositories and credentials via API
+- **User Management API**: Admin endpoints for user and role management
+
+#### 📊 Monitoring & Observability
+- **Prometheus Metrics**: Comprehensive metrics for monitoring
+- **Health Check Endpoint**: Service health and readiness checks
+- **Validation Monitoring**: Track validation periods and auto-cutover status
+- **Storage Operation Metrics**: Monitor file and database operation latencies
+
+#### 🧪 Comprehensive Testing
+- **Unit Tests**: 100+ test cases for API, models, and storage
+- **Integration Tests**: End-to-end workflow testing
+- **CI/CD Pipeline**: GitHub Actions workflow with multi-version Python testing
+- **Code Quality Checks**: Black, flake8, mypy integration
+- **Security Scanning**: Trivy vulnerability scanning
+
+### Changed
+- **Default Storage**: Changed from `hybrid` to `database` for new installations
+- **API Version**: Updated FastAPI version to 0.4.0
+- **Python Support**: Added Python 3.12 support
+- **Docker Configuration**: Production-ready Docker Compose setup with PostgreSQL
+- **Environment Variables**: All sensitive configuration moved to environment variables
+- **OAuth Redirect**: Changed default OAuth redirect port from 8081 to 8080
+
+### Fixed
+- **Security**: Removed all hardcoded secrets and credentials
+- **Database Connections**: Fixed connection pool management
+- **VCS Sync**: Improved error handling in repository synchronization
+- **Session Management**: Fixed cookie security and SameSite settings
+
+### Deprecated
+- **Redis Support**: Removed unused Redis dependency
+- **Streamlit UI**: Temporarily disabled pending Prisma authentication update
+
+### Security
+- **No Hardcoded Secrets**: All secrets must be provided via environment variables
+- **Encrypted Credentials**: VCS credentials encrypted at rest with Fernet
+- **Secure Session Cookies**: HTTP-only, secure, with SameSite protection
+- **JWT Secret Required**: Mandatory JWT secret configuration for production
+
+### Migration Notes
+
+**Breaking Changes**:
+- Storage backend default changed from `hybrid` to `database`
+- OAuth redirect URI changed from port 8081 to 8080
+- Redis removed (if you were using it, migrate data first)
+- Environment variables now required for all sensitive data
+
+**Migration Path from v0.3.x**:
+1. Backup your data directory
+2. Set up PostgreSQL database
+3. Configure environment variables in `.env` file
+4. Run `prisma db push` to initialize database
+5. Import existing job templates
+6. Test authentication and job execution
+
+### Documentation
+- Added `TESTING.md` - Comprehensive testing guide
+- Added `DOCKER-DEPLOYMENT.md` - Docker deployment guide
+- Updated` README.md` - Enterprise features documentation
+- Added `.env.example` - Environment configuration template
+- Added CI/CD workflow documentation
+
+### Contributors
+- Htunn Thu Thu (@Htunn)
+
+---
+
 ## [0.2.5] - 2026-01-11
 
 ### Fixed

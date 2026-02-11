@@ -1,4 +1,4 @@
-# Publishing Checklist for v0.4.0
+# Publishing Checklist for v0.2.6
 
 ## ✅ Completed Items
 
@@ -335,5 +335,5 @@ Check all items in the "Pending Items" section before publishing:
 ---
 
 **Last Updated**: $(date +%Y-%m-%d)
-**Target Release**: v0.4.0
+**Target Release**: v0.2.6
 **Estimated Time to Complete**: 2-3 hours
