@@ -241,46 +241,58 @@ Monitor in: https://github.com/Htunn/ansible-inspec/graphs/traffic
 
 ---
 
-## 🛠️ Automation Recommendation
+## 🤖 Automated Workflows
 
-Consider adding `.github/workflows/release-helm.yml` for automatic chart publishing on git tags:
+### ✅ GitHub Actions Configured
 
-```yaml
-name: Release Helm Chart
+The repository now includes automated workflows:
 
-on:
-  push:
-    tags:
-      - 'v*'
+#### **Release Workflow** - Automatic Chart Publishing
 
-jobs:
-  release:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+**File:** `.github/workflows/release-helm.yml`
 
-      - name: Install Helm
-        uses: azure/setup-helm@v3
+**What it does:**
+- Triggers on git tags (`v*`)
+- Packages Helm chart
+- Updates gh-pages branch
+- Creates GitHub Release
+- Auto-publishes to Artifact Hub
 
-      - name: Package chart
-        run: |
-          cd helm
-          helm dependency update ansible-inspec/
-          helm package ansible-inspec/
+**How to use:**
+```bash
+# 1. Update version in Chart.yaml
+helm/ansible-inspec/Chart.yaml:
+  version: 0.2.7
+  appVersion: "0.2.7"
 
-      - name: Update gh-pages
-        run: |
-          git config user.name "$GITHUB_ACTOR"
-          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
-          git checkout gh-pages
-          cp helm/ansible-inspec-*.tgz helm/
-          helm repo index helm --url https://htunn.github.io/ansible-inspec/helm --merge helm/index.yaml
-          git add helm/
-          git commit -m "Release chart ${{ github.ref_name }}"
-          git push origin gh-pages
+# 2. Update changelog annotation
+artifacthub.io/changes: |
+  - kind: changed
+    description: Your changes here
+
+# 3. Commit and tag
+git add helm/ansible-inspec/Chart.yaml
+git commit -m "Bump chart to v0.2.7"
+git push origin main
+
+git tag -a v0.2.7 -m "Release v0.2.7"
+git push origin v0.2.7
+
+# 4. Automation handles the rest! 🎉
 ```
+
+#### **Lint Workflow** - Chart Validation
+
+**File:** `.github/workflows/helm-lint.yml`
+
+**What it does:**
+- Runs on every push/PR to `helm/**`
+- Validates chart syntax
+- Checks Artifact Hub annotations
+- Tests chart templating
+- Ensures chart packages correctly
+
+**No manual action needed** - runs automatically on changes!
 
 ---
 

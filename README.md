@@ -270,6 +270,7 @@ helm install my-release ansible-inspec/ansible-inspec \
 - [Helm Chart Documentation](helm/ansible-inspec/README.md)
 - [Artifact Hub Page](https://artifacthub.io/packages/search?repo=ansible-inspec)
 - [Publishing Guide](helm/PUBLISHING.md)
+- **Automated CI/CD**: GitHub Actions for chart releases (`.github/workflows/release-helm.yml`)
 
 ### Server Setup
 

@@ -130,59 +130,60 @@ To get the "Official" badge:
 
 ## Automation with GitHub Actions
 
-Create `.github/workflows/release-helm.yml`:
+### ✅ Automated Workflows Included
 
-```yaml
-name: Release Helm Chart
+This repository includes two GitHub Actions workflows for Helm chart automation:
 
-on:
-  push:
-    tags:
-      - 'v*'
+#### 1. **Release Workflow** (`.github/workflows/release-helm.yml`)
 
-jobs:
-  release:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+Automatically publishes Helm charts when you push a git tag:
 
-      - name: Configure Git
-        run: |
-          git config user.name "$GITHUB_ACTOR"
-          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+**Triggers:** Git tags matching `v*` (e.g., `v0.2.6`, `v0.2.7`)
 
-      - name: Install Helm
-        uses: azure/setup-helm@v3
-        with:
-          version: v3.13.0
+**Actions:**
+- 📦 Updates Helm chart dependencies
+- 🔨 Packages the chart
+- 📤 Pushes to `gh-pages` branch
+- 📊 Updates Helm repository index
+- 🎉 Creates GitHub Release with chart attachment
+- 📝 Generates workflow summary
 
-      - name: Package Helm chart
-        run: |
-          cd helm
-          helm package ansible-inspec/
+**Usage:**
+```bash
+# 1. Update Chart.yaml version and appVersion
+# 2. Update changelog in annotations
+# 3. Commit changes
+git add helm/ansible-inspec/Chart.yaml
+git commit -m "Bump chart to v0.2.7"
+git push origin main
 
-      - name: Checkout gh-pages
-        uses: actions/checkout@v4
-        with:
-          ref: gh-pages
-          path: gh-pages
+# 4. Create and push tag
+git tag -a v0.2.7 -m "Release v0.2.7"
+git push origin v0.2.7
 
-      - name: Update Helm repository
-        run: |
-          cp helm/ansible-inspec-*.tgz gh-pages/
-          cp helm/artifacthub-repo.yml gh-pages/
-          helm repo index gh-pages --url https://htunn.github.io/ansible-inspec/helm
-
-      - name: Push to gh-pages
-        working-directory: gh-pages
-        run: |
-          git add .
-          git commit -m "Release Helm chart ${{ github.ref_name }}"
-          git push origin gh-pages
+# 5. GitHub Actions automatically:
+#    - Packages chart
+#    - Updates gh-pages
+#    - Creates release
+#    - Artifact Hub auto-indexes new version
 ```
+
+#### 2. **Lint Workflow** (`.github/workflows/helm-lint.yml`)
+
+Validates Helm chart on every push and pull request:
+
+**Triggers:** Changes to `helm/**` files
+
+**Actions:**
+- ✅ Runs `helm lint`
+- 📋 Validates Chart.yaml required fields
+- 🏷️ Checks Artifact Hub annotations
+- 🧪 Tests chart templating
+- 📦 Verifies chart packages successfully
+
+**Files Checked:**
+- `.github/workflows/release-helm.yml` - Release automation
+- `.github/workflows/helm-lint.yml` - Chart validation
 
 ## Updating the Chart
 

@@ -1,0 +1,116 @@
+name: Helm Chart Lint
+
+on:
+  pull_request:
+    paths:
+      - 'helm/**'
+  push:
+    branches:
+      - main
+    paths:
+      - 'helm/**'
+
+jobs:
+  lint-helm-chart:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.14.0'
+
+      - name: Update dependencies
+        run: |
+          cd helm
+          helm dependency update ansible-inspec/
+
+      - name: Lint Helm chart
+        run: |
+          cd helm
+          helm lint ansible-inspec/
+
+      - name: Validate Chart.yaml
+        run: |
+          cd helm/ansible-inspec
+          
+          # Check required fields
+          echo "Checking Chart.yaml required fields..."
+          
+          if ! grep -q "^version:" Chart.yaml; then
+            echo "❌ Missing 'version' field in Chart.yaml"
+            exit 1
+          fi
+          
+          if ! grep -q "^appVersion:" Chart.yaml; then
+            echo "❌ Missing 'appVersion' field in Chart.yaml"
+            exit 1
+          fi
+          
+          if ! grep -q "^description:" Chart.yaml; then
+            echo "❌ Missing 'description' field in Chart.yaml"
+            exit 1
+          fi
+          
+          echo "✅ All required fields present"
+
+      - name: Validate Artifact Hub annotations
+        run: |
+          cd helm/ansible-inspec
+          
+          echo "Checking Artifact Hub annotations..."
+          
+          # Check for category
+          if ! grep -q "artifacthub.io/category:" Chart.yaml; then
+            echo "⚠️ Missing artifacthub.io/category annotation"
+          else
+            echo "✅ Category annotation present"
+          fi
+          
+          # Check for changes
+          if ! grep -q "artifacthub.io/changes:" Chart.yaml; then
+            echo "⚠️ Missing artifacthub.io/changes annotation"
+          else
+            echo "✅ Changes annotation present"
+          fi
+          
+          # Check for images
+          if ! grep -q "artifacthub.io/images:" Chart.yaml; then
+            echo "⚠️ Missing artifacthub.io/images annotation"
+          else
+            echo "✅ Images annotation present"
+          fi
+          
+          # Check for links
+          if ! grep -q "artifacthub.io/links:" Chart.yaml; then
+            echo "⚠️ Missing artifacthub.io/links annotation"
+          else
+            echo "✅ Links annotation present"
+          fi
+
+      - name: Template test
+        run: |
+          cd helm
+          helm template test-release ansible-inspec/ --debug
+
+      - name: Check Helm package
+        run: |
+          cd helm
+          helm package ansible-inspec/
+          ls -lh ansible-inspec-*.tgz
+          echo "✅ Chart packages successfully"
+
+      - name: Summary
+        if: success()
+        run: |
+          echo "## ✅ Helm Chart Validation Passed!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Helm lint: ✅ Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- Chart.yaml validation: ✅ Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- Artifact Hub annotations: ✅ Checked" >> $GITHUB_STEP_SUMMARY
+          echo "- Template test: ✅ Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- Package test: ✅ Passed" >> $GITHUB_STEP_SUMMARY
