@@ -256,7 +256,45 @@ helm install my-release ansible-inspec/ansible-inspec
 helm install my-release ansible-inspec/ansible-inspec \
   --set postgresql.auth.password=yourpassword \
   --set replicaCount=3 \
-  --set autoscaling.enabled=true
+  --set autoscaling.enabled=true \
+  --set ingress.enabled=true \
+  --set ingress.hosts[0].host=ansible-inspec.yourdomain.com
+```
+
+**Production Deployment Example:**
+
+```bash
+# Create custom values file
+cat > my-values.yaml <<EOF
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: ansible-inspec.tripleseven.cloud
+      paths:
+        - path: /
+          pathType: Prefix
+config:
+  auth:
+    azureTenantId: "your-tenant-id"
+    azureClientId: "your-client-id"
+secrets:
+  azureClientSecret: "your-client-secret"
+  postgresPassword: "secure-password"
+EOF
+
+# Install with custom values
+helm install ansible-inspec ./helm/ansible-inspec \
+  -f my-values.yaml \
+  -n ansible-inspec \
+  --create-namespace
+
+# Check deployment status
+kubectl get pods -n ansible-inspec
+kubectl get ingress -n ansible-inspec
+
+# View logs
+kubectl logs -f -n ansible-inspec -l app.kubernetes.io/name=ansible-inspec
 ```
 
 **Features:**
@@ -265,9 +303,14 @@ helm install my-release ansible-inspec/ansible-inspec \
 - 🛡️ Security hardened (Pod Security Standards, RBAC, NetworkPolicy)
 - 📊 Prometheus integration via ServiceMonitor
 - 🚀 Multi-architecture support (amd64, arm64)
+- 🔒 Azure AD OAuth2 integration
+- 🌐 Ingress with TLS/SSL support
 
 **Resources:**
 - [Helm Chart Documentation](helm/ansible-inspec/README.md)
+- [Artifact Hub Page](https://artifacthub.io/packages/search?repo=ansible-inspec)
+- [Deployment Guide](helm/PUBLISHING.md)
+- [CI/CD Automation](.github/HELM-AUTOMATION.md)
 - [Artifact Hub Page](https://artifacthub.io/packages/search?repo=ansible-inspec)
 - [Publishing Guide](helm/PUBLISHING.md)
 - **Automated CI/CD**: GitHub Actions for chart releases (`.github/workflows/release-helm.yml`)

@@ -1,0 +1,153 @@
+# Example custom values for ansible-inspec Helm deployment
+# Copy this file to my-values.yaml and customize with your settings
+
+replicaCount: 2
+
+image:
+  repository: htunnthuthu/ansible-inspec
+  pullPolicy: IfNotPresent
+  tag: "0.2.6"
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8080
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: ansible-inspec.example.com  # CHANGE THIS
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: ansible-inspec-tls
+      hosts:
+        - ansible-inspec.example.com  # CHANGE THIS
+
+# Resource configuration
+resources:
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+# Persistent volume configuration
+persistence:
+  enabled: true
+  size: 10Gi
+
+# VCS repositories persistent volume
+vcsStorage:
+  enabled: true
+  size: 20Gi
+
+# Application configuration
+config:
+  # Server settings
+  host: "0.0.0.0"
+  port: 8080
+  debug: false
+  logLevel: "INFO"
+  
+  # Storage backend
+  storageBackend: "database"
+  
+  # CORS origins
+  corsOrigins: '["https://ansible-inspec.example.com","http://localhost:8080"]'
+  
+  # Authentication
+  auth:
+    enabled: true
+    jwtAlgorithm: "HS256"
+    accessTokenExpireMinutes: 30
+    refreshTokenExpireDays: 7
+    cookieSecure: true
+    cookieHttponly: false
+    cookieSamesite: "lax"
+    oauthRedirectUri: "https://ansible-inspec.example.com/api/v1/auth/callback"
+    streamlitUiUrl: "https://ansible-inspec.example.com"
+    
+    # Azure AD OAuth2 (CHANGE THESE)
+    azureTenantId: "your-azure-tenant-id"
+    azureClientId: "your-azure-client-id"
+  
+  # VCS Integration
+  vcs:
+    enabled: true
+    pollIntervalMinutes: 15
+    webhookEnabled: false
+  
+  # Monitoring
+  monitoring:
+    prometheusEnabled: true
+
+# Secrets configuration (CHANGE ALL OF THESE!)
+secrets:
+  # PostgreSQL password
+  postgresPassword: "changeme-secure-password"
+  
+  # JWT secret (generate with: openssl rand -base64 32)
+  jwtSecret: "changeme-jwt-secret-key"
+  
+  # Encryption key (generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+  encryptionKey: "changeme-encryption-key"
+  
+  # Azure AD client secret
+  azureClientSecret: "changeme-azure-client-secret"
+  
+  # VCS webhook secret
+  webhookSecret: "changeme-webhook-secret"
+
+# PostgreSQL configuration (using Bitnami subchart)
+postgresql:
+  enabled: true
+  auth:
+    username: ansibleinspec
+    password: changeme-secure-password  # CHANGE THIS
+    database: ansibleinspec
+  architecture: standalone
+  primary:
+    persistence:
+      enabled: true
+      size: 20Gi
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+      requests:
+        cpu: 250m
+        memory: 256Mi
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Network Policy
+networkPolicy:
+  enabled: true
+  policyTypes:
+    - Ingress
+    - Egress
+
+# Service Monitor for Prometheus
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  scrapeTimeout: 10s
