@@ -371,3 +371,36 @@ extraEnvFrom: []
 #     name: extra-configmap
 # - secretRef:
 #     name: extra-secret
+
+# Streamlit UI configuration
+streamlit:
+  # Enable separate Streamlit UI deployment
+  enabled: true
+  # Number of UI replicas
+  replicaCount: 1
+  # Streamlit port
+  port: 8501
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 8501
+  # Resource limits
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  # Pod annotations
+  podAnnotations: {}
+  # Pod labels
+  podLabels: {}
+  # Node selector
+  nodeSelector: {}
+  # Tolerations
+  tolerations: []
+  # Affinity
+  affinity: {}
+  # Extra environment variables
+  extraEnv: []
