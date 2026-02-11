@@ -257,7 +257,8 @@ helm install my-release ansible-inspec/ansible-inspec \
   --set replicaCount=3 \
   --set autoscaling.enabled=true \
   --set ingress.enabled=true \
-  --set ingress.hosts[0].host=ansible-inspec.yourdomain.com
+  --set ingress.hosts[0].host=ansible-inspec.yourdomain.com \
+  --set streamlit.enabled=true
 ```
 
 **Production Deployment Example:**
@@ -265,54 +266,109 @@ helm install my-release ansible-inspec/ansible-inspec \
 ```bash
 # Create custom values file
 cat > my-values.yaml <<EOF
+# Image configuration
+image:
+  repository: ghcr.io/htunn/ansible-inspec
+  tag: "0.2.6"  # Use specific version in production
+
+# Ingress with TLS
 ingress:
   enabled: true
   className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
   hosts:
-    - host: ansible-inspec.tripleseven.cloud
+    - host: ansible-inspec.yourdomain.com
       paths:
         - path: /
           pathType: Prefix
+  tls:
+    - secretName: ansible-inspec-tls
+      hosts:
+        - ansible-inspec.yourdomain.com
+
+# Authentication
 config:
   auth:
+    enabled: true
+    oauthRedirectUri: "https://ansible-inspec.yourdomain.com/api/v1/auth/callback"
+    streamlitUiUrl: "https://ansible-inspec.yourdomain.com"
     azureTenantId: "your-tenant-id"
     azureClientId: "your-client-id"
+
+# Secrets (use external secret management in production)
 secrets:
   azureClientSecret: "your-client-secret"
   postgresPassword: "secure-password"
+  jwtSecret: "change-this-to-a-secure-random-string"
+  encryptionKey: "change-this-to-a-32-byte-base64-encoded-key"
+
+# Enable separate Streamlit UI deployment
+streamlit:
+  enabled: true
+  replicaCount: 1
+
+# PostgreSQL configuration
+postgresql:
+  enabled: true
+  auth:
+    password: "secure-password"
+  primary:
+    persistence:
+      size: 20Gi
 EOF
 
 # Install with custom values
-helm install ansible-inspec ./helm/ansible-inspec \
+helm install ansible-inspec ansible-inspec/ansible-inspec \
   -f my-values.yaml \
   -n ansible-inspec \
   --create-namespace
 
 # Check deployment status
-kubectl get pods -n ansible-inspec
-kubectl get ingress -n ansible-inspec
+kubectl get pods,svc,ingress -n ansible-inspec
 
-# View logs
-kubectl logs -f -n ansible-inspec -l app.kubernetes.io/name=ansible-inspec
+# Expected output:
+# pod/ansible-inspec-xxxxx          1/1     Running   0          5m
+# pod/ansible-inspec-ui-xxxxx       1/1     Running   0          5m
+# pod/ansible-inspec-postgresql-0   1/1     Running   0          5m
+#
+# service/ansible-inspec            ClusterIP   10.x.x.x    <none>   8080/TCP
+# service/ansible-inspec-ui         ClusterIP   10.x.x.x    <none>   8501/TCP
+# service/ansible-inspec-postgresql ClusterIP   10.x.x.x    <none>   5432/TCP
+
+# Access your deployment
+echo "API Documentation: https://ansible-inspec.yourdomain.com/docs"
+echo "Streamlit UI: https://ansible-inspec.yourdomain.com/ui"
+echo "Health Check: https://ansible-inspec.yourdomain.com/health"
 ```
+
+**Architecture:**
+- **API Server** (FastAPI): Handles REST API requests, Swagger/ReDoc documentation
+- **Streamlit UI**: Separate deployment for web interface, accessible at `/ui` path
+- **PostgreSQL**: Managed database with persistent storage
+- **Ingress**: Path-based routing with TLS termination
 
 **Features:**
 - 🔐 Production-ready with PostgreSQL database
+- 🎨 Separate API and UI deployments for independent scaling
 - 🔄 Auto-scaling with HorizontalPodAutoscaler
 - 🛡️ Security hardened (Pod Security Standards, RBAC, NetworkPolicy)
 - 📊 Prometheus integration via ServiceMonitor
 - 🚀 Multi-architecture support (amd64, arm64)
 - 🔒 Azure AD OAuth2 integration
-- 🌐 Ingress with TLS/SSL support
+- 🌐 Ingress with TLS/SSL support via cert-manager
+
+**Quick Access:**
+- **API & Docs**: `https://your-domain.com/docs` (Swagger UI)
+- **Streamlit UI**: `https://your-domain.com/ui` (Web Interface)
+- **ReDoc**: `https://your-domain.com/redoc` (API Documentation)
+- **Health**: `https://your-domain.com/health` (Health Check)
 
 **Resources:**
-- [Helm Chart Documentation](helm/ansible-inspec/README.md)
-- [Artifact Hub Page](https://artifacthub.io/packages/search?repo=ansible-inspec)
-- [Deployment Guide](helm/PUBLISHING.md)
-- [CI/CD Automation](.github/HELM-AUTOMATION.md)
-- [Artifact Hub Page](https://artifacthub.io/packages/search?repo=ansible-inspec)
-- [Publishing Guide](helm/PUBLISHING.md)
-- **Automated CI/CD**: GitHub Actions for chart releases (`.github/workflows/release-helm.yml`)
+- 📖 [Kubernetes Deployment Guide](ansible-inspec-docs/guides/kubernetes.md)
+- 📦 [Helm Chart Documentation](helm/ansible-inspec/README.md)
+- 🌟 [Artifact Hub Page](https://artifacthub.io/packages/search?repo=ansible-inspec)
+- 🚀 [CI/CD Automation](.github/workflows/release-helm.yml)
 
 ### Server Setup
 
