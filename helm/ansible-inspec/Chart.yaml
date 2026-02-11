@@ -27,7 +27,6 @@ dependencies:
     condition: postgresql.enabled
 
 home: https://github.com/Htunn/ansible-inspec
-icon: https://raw.githubusercontent.com/Htunn/ansible-inspec/main/docs/assets/logo.png
 
 annotations:
   artifacthub.io/category: security
