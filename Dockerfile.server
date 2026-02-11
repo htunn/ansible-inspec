@@ -65,8 +65,8 @@ COPY --from=builder /usr/local/bin/uvicorn /usr/local/bin/uvicorn
 # Copy schema for Prisma
 COPY --from=builder /app/schema.prisma /app/schema.prisma
 
-# Copy entrypoint script
-COPY dofrom=builder --chown=ansibleinspec:ansibleinspec /tmp/prisma-binaries/prisma-python /home/ansibleinspec/.cache/prisma-python
+# Copy Prisma binaries and set permissions
+COPY --from=builder --chown=ansibleinspec:ansibleinspec /tmp/prisma-binaries/prisma-python /home/ansibleinspec/.cache/prisma-python
 
 # Set user and working directory
 USER ansibleinspec
