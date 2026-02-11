@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ansible-InSpec Helm Charts</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+        }
+        pre {
+            background: #f4f4f4;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            overflow-x: auto;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            margin: 5px 5px 5px 0;
+            background: #3498db;
+            color: white;
+            border-radius: 3px;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .badge:hover {
+            background: #2980b9;
+        }
+        a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .links {
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🚀 Ansible-InSpec Helm Charts Repository</h1>
+    
+    <p>
+        Enterprise compliance testing platform combining Ansible and InSpec with Kubernetes deployment support.
+    </p>
+
+    <div class="links">
+        <a href="https://artifacthub.io/packages/search?repo=ansible-inspec" class="badge">📦 Artifact Hub</a>
+        <a href="https://github.com/Htunn/ansible-inspec" class="badge">💻 GitHub</a>
+        <a href="https://hub.docker.com/r/htunnthuthu/ansible-inspec" class="badge">🐳 Docker Hub</a>
+        <a href="https://pypi.org/project/ansible-inspec/" class="badge">🐍 PyPI</a>
+    </div>
+
+    <h2>📋 Add This Repository</h2>
+    <pre>helm repo add ansible-inspec https://htunn.github.io/ansible-inspec/helm
+helm repo update</pre>
+
+    <h2>🔍 Search for Charts</h2>
+    <pre>helm search repo ansible-inspec</pre>
+
+    <h2>💾 Install Chart</h2>
+    <pre>helm install my-release ansible-inspec/ansible-inspec</pre>
+
+    <h2>⚙️ Install with Custom Values</h2>
+    <pre>helm install my-release ansible-inspec/ansible-inspec \
+  --set postgresql.enabled=true \
+  --set postgresql.auth.password=yourpassword \
+  --set image.tag=0.2.6</pre>
+
+    <h2>📚 Available Charts</h2>
+    <ul>
+        <li>
+            <strong>ansible-inspec</strong> (v0.2.6) - Enterprise compliance testing platform
+            <ul>
+                <li>Ansible + InSpec integration</li>
+                <li>PostgreSQL database support</li>
+                <li>Azure AD OAuth2 authentication</li>
+                <li>VCS integration (GitHub, GitLab)</li>
+                <li>REST API server</li>
+                <li>Security hardened (Pod Security Standards)</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h2>🔗 Resources</h2>
+    <ul>
+        <li><a href="https://github.com/Htunn/ansible-inspec">Source Code</a></li>
+        <li><a href="https://github.com/Htunn/ansible-inspec-docs">Documentation</a></li>
+        <li><a href="https://github.com/Htunn/ansible-inspec/issues">Issue Tracker</a></li>
+        <li><a href="https://github.com/Htunn/ansible-inspec/blob/main/helm/ansible-inspec/README.md">Chart README</a></li>
+    </ul>
+
+    <h2>📄 License</h2>
+    <p>GPL-3.0-or-later</p>
+
+    <hr>
+    <p style="text-align: center; color: #7f8c8d;">
+        <small>Powered by <a href="https://helm.sh">Helm</a> | Published on <a href="https://artifacthub.io">Artifact Hub</a></small>
+    </p>
+</body>
+</html>

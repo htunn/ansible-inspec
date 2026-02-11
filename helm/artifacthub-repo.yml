@@ -1,0 +1,27 @@
+# Artifact Hub repository metadata file
+# https://github.com/artifacthub/hub/blob/master/docs/metadata/artifacthub-repo.yml
+#
+# This file must be located at the root of the Helm chart repository
+
+repositoryID: # Will be filled automatically when claiming ownership
+
+displayName: Ansible-InSpec Helm Charts
+name: ansible-inspec
+
+owners:
+  - name: ansible-inspec project
+    email: hello@example.com
+
+links:
+  - name: GitHub
+    url: https://github.com/Htunn/ansible-inspec
+  - name: Documentation
+    url: https://github.com/Htunn/ansible-inspec-docs
+  - name: Docker Hub
+    url: https://hub.docker.com/r/htunnthuthu/ansible-inspec
+  - name: PyPI
+    url: https://pypi.org/project/ansible-inspec/
+
+ignore:
+  - name: example-dev-chart
+  - name: test-chart
