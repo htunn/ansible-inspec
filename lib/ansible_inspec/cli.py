@@ -533,7 +533,6 @@ Press Ctrl+C to stop the server
 """)
                 
                 # Set environment variables for Streamlit to connect to API
-                import os
                 os.environ['API_BASE_URL'] = f'http://{args.host}:{args.port}/api/v1'
                 os.environ['API_SERVER_URL'] = f'http://{args.host}:{args.port}'
                 
