@@ -25,7 +25,7 @@ env:
 
 jobs:
   build-server:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     permissions:
       contents: read
       packages: write
@@ -139,7 +139,7 @@ jobs:
           EOF
 
   security-scan:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: build-server
     permissions:
       contents: read
