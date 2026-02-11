@@ -1,0 +1,373 @@
+# Default values for ansible-inspec Helm chart
+# This is a YAML-formatted file.
+
+# Global settings
+global:
+  # Storage class for persistent volumes
+  storageClass: ""
+
+# Number of replicas for the API server
+replicaCount: 2
+
+# Image configuration
+image:
+  repository: htunnthuthu/ansible-inspec
+  pullPolicy: IfNotPresent
+  tag: "0.2.6"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# Service account configuration
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials
+  automount: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use
+  name: ""
+
+# Pod annotations
+podAnnotations: {}
+
+# Pod labels
+podLabels: {}
+
+# Security context for the pod
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+# Security context for containers
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+  annotations: {}
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    # Security headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Frame-Options: DENY";
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "X-XSS-Protection: 1; mode=block";
+      more_set_headers "Referrer-Policy: strict-origin-when-cross-origin";
+  hosts:
+    - host: ansible-inspec.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: ansible-inspec-tls
+      hosts:
+        - ansible-inspec.example.com
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+# Liveness probe configuration
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 60
+  periodSeconds: 30
+  timeoutSeconds: 10
+  failureThreshold: 3
+
+# Readiness probe configuration
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Startup probe configuration
+startupProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 30
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+  # maxUnavailable: 1
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity rules
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - ansible-inspec
+          topologyKey: kubernetes.io/hostname
+
+# Persistent volume configuration
+persistence:
+  enabled: true
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 10Gi
+  annotations: {}
+
+# VCS repositories persistent volume
+vcsStorage:
+  enabled: true
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 20Gi
+  annotations: {}
+
+# Application configuration
+config:
+  # Server settings
+  host: "0.0.0.0"
+  port: 8080
+  debug: false
+  logLevel: "INFO"
+  
+  # Storage backend: "database" or "hybrid" or "file"
+  storageBackend: "database"
+  
+  # CORS origins
+  corsOrigins: '["*"]'
+  
+  # Authentication
+  auth:
+    enabled: true
+    jwtAlgorithm: "HS256"
+    accessTokenExpireMinutes: 10080  # 7 days
+    refreshTokenExpireDays: 7
+    cookieSecure: true
+    cookieHttponly: false
+    cookieSamesite: "lax"
+    oauthRedirectUri: "https://ansible-inspec.example.com/api/v1/auth/callback"
+    streamlitUiUrl: "https://ansible-inspec.example.com"
+    
+    # Azure AD OAuth2
+    azureTenantId: ""
+    azureClientId: ""
+  
+  # VCS Integration
+  vcs:
+    enabled: true
+    pollIntervalMinutes: 15
+    webhookEnabled: true
+  
+  # Monitoring
+  monitoring:
+    prometheusEnabled: true
+
+# Secrets configuration (use external secret management in production)
+secrets:
+  # Database password
+  postgresPassword: "changeme"
+  
+  # JWT secret for token signing
+  jwtSecret: "change-this-to-a-secure-random-string"
+  
+  # Encryption key for VCS credentials
+  encryptionKey: "change-this-to-a-32-byte-base64-encoded-key"
+  
+  # Azure AD client secret (if using Azure AD auth)
+  azureClientSecret: ""
+  
+  # VCS webhook secret
+  webhookSecret: ""
+  
+  # Use existing secret instead of creating new one
+  existingSecret: ""
+
+# PostgreSQL configuration (using Bitnami subchart)
+postgresql:
+  enabled: true
+  auth:
+    username: ansibleinspec
+    password: changeme
+    database: ansibleinspec
+    existingSecret: ""
+  architecture: standalone
+  primary:
+    persistence:
+      enabled: true
+      storageClass: ""
+      size: 20Gi
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+      requests:
+        cpu: 250m
+        memory: 256Mi
+    podSecurityContext:
+      enabled: true
+      fsGroup: 1001
+    containerSecurityContext:
+      enabled: true
+      runAsUser: 1001
+      runAsNonRoot: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+
+# External PostgreSQL (if not using built-in)
+externalDatabase:
+  enabled: false
+  host: ""
+  port: 5432
+  user: ansibleinspec
+  password: ""
+  database: ansibleinspec
+  existingSecret: ""
+  existingSecretPasswordKey: "password"
+
+# Network Policy
+networkPolicy:
+  enabled: true
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: ingress-nginx
+      - podSelector:
+          matchLabels: {}
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    # Allow DNS
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+    # Allow PostgreSQL
+    - to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: postgresql
+      ports:
+        - protocol: TCP
+          port: 5432
+    # Allow HTTPS for external API calls (VCS, Azure AD)
+    - to:
+      - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+    # Allow HTTP for external API calls
+    - to:
+      - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 80
+
+# ServiceMonitor for Prometheus Operator
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  scrapeTimeout: 10s
+  labels: {}
+  annotations: {}
+
+# Init containers
+initContainers:
+  # Database migration init container
+  - name: db-migrate
+    image: "htunnthuthu/ansible-inspec:0.2.6"
+    imagePullPolicy: IfNotPresent
+    command:
+      - sh
+      - -c
+      - |
+        echo "Running database migrations..."
+        prisma db push --accept-data-loss --skip-generate
+        echo "Database migration completed"
+    envFrom:
+      - configMapRef:
+          name: '{{ include "ansible-inspec.fullname" . }}'
+      - secretRef:
+          name: '{{ include "ansible-inspec.fullname" . }}'
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      readOnlyRootFilesystem: false
+      runAsNonRoot: true
+      runAsUser: 1000
+
+# Extra environment variables
+extraEnv: []
+# - name: CUSTOM_VAR
+#   value: "custom_value"
+
+# Extra environment variables from ConfigMaps or Secrets
+extraEnvFrom: []
+# - configMapRef:
+#     name: extra-configmap
+# - secretRef:
+#     name: extra-secret

@@ -1,0 +1,79 @@
+apiVersion: v2
+name: ansible-inspec
+description: Enterprise compliance testing with Ansible and InSpec integration
+type: application
+version: 0.2.6
+appVersion: "0.2.6"
+
+keywords:
+  - compliance
+  - security
+  - ansible
+  - inspec
+  - devops
+  - audit
+
+maintainers:
+  - name: ansible-inspec contributors
+    email: hello@example.com
+
+sources:
+  - https://github.com/Htunn/ansible-inspec
+
+dependencies:
+  - name: postgresql
+    version: "15.x.x"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: postgresql.enabled
+
+home: https://github.com/Htunn/ansible-inspec
+icon: https://raw.githubusercontent.com/Htunn/ansible-inspec/main/docs/assets/logo.png
+
+annotations:
+  artifacthub.io/category: security
+  artifacthub.io/license: GPL-3.0-or-later
+  artifacthub.io/changes: |
+    - kind: added
+      description: Initial Helm chart release
+      links:
+        - name: GitHub Release
+          url: https://github.com/Htunn/ansible-inspec/releases/tag/v0.2.6
+    - kind: added
+      description: PostgreSQL database support with Prisma ORM
+    - kind: added
+      description: Azure AD OAuth2 and password authentication
+    - kind: added
+      description: VCS integration with GitHub and GitLab webhooks
+    - kind: added
+      description: REST API with 30+ endpoints
+    - kind: security
+      description: Security hardening with Pod Security Standards
+  artifacthub.io/containsSecurityUpdates: "false"
+  artifacthub.io/prerelease: "false"
+  artifacthub.io/images: |
+    - name: ansible-inspec
+      image: docker.io/htunnthuthu/ansible-inspec:0.2.6
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    - name: postgresql
+      image: docker.io/bitnami/postgresql:15
+      whitelisted: true
+  artifacthub.io/links: |
+    - name: Chart Source
+      url: https://github.com/Htunn/ansible-inspec/tree/main/helm/ansible-inspec
+    - name: Documentation
+      url: https://github.com/Htunn/ansible-inspec-docs
+    - name: Docker Hub
+      url: https://hub.docker.com/r/htunnthuthu/ansible-inspec
+    - name: PyPI Package
+      url: https://pypi.org/project/ansible-inspec/
+    - name: support
+      url: https://github.com/Htunn/ansible-inspec/issues
+  artifacthub.io/maintainers: |
+    - name: Htunn Thu Thu
+      email: htunnthuthu.linux@gmail.com
+  artifacthub.io/recommendations: |
+    - url: https://artifacthub.io/packages/helm/bitnami/postgresql
+    - url: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
+

@@ -67,7 +67,7 @@ inspec.lock
 # Build artifacts
 *.tar.gz
 *.zip
-ansible-inspec
+/ansible-inspec
 
 #test script
 *.sh

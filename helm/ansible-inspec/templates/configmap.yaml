@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ansible-inspec.fullname" . }}
+  labels:
+    {{- include "ansible-inspec.labels" . | nindent 4 }}
+data:
+  # Server configuration
+  HOST: {{ .Values.config.host | quote }}
+  PORT: {{ .Values.config.port | quote }}
+  DEBUG: {{ .Values.config.debug | quote }}
+  LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  
+  # Storage backend
+  STORAGE_BACKEND: {{ .Values.config.storageBackend | quote }}
+  
+  # CORS configuration
+  CORS_ORIGINS: {{ .Values.config.corsOrigins | quote }}
+  
+  # Database configuration
+  {{- if .Values.externalDatabase.enabled }}
+  POSTGRES_USER: {{ .Values.externalDatabase.user | quote }}
+  POSTGRES_DB: {{ .Values.externalDatabase.database | quote }}
+  {{- else }}
+  POSTGRES_USER: {{ .Values.postgresql.auth.username | quote }}
+  POSTGRES_DB: {{ .Values.postgresql.auth.database | quote }}
+  {{- end }}
+  
+  # Authentication configuration
+  AUTH__ENABLED: {{ .Values.config.auth.enabled | quote }}
+  AUTH__JWT_ALGORITHM: {{ .Values.config.auth.jwtAlgorithm | quote }}
+  AUTH__ACCESS_TOKEN_EXPIRE_MINUTES: {{ .Values.config.auth.accessTokenExpireMinutes | quote }}
+  AUTH__REFRESH_TOKEN_EXPIRE_DAYS: {{ .Values.config.auth.refreshTokenExpireDays | quote }}
+  AUTH__COOKIE_SECURE: {{ .Values.config.auth.cookieSecure | quote }}
+  AUTH__COOKIE_HTTPONLY: {{ .Values.config.auth.cookieHttponly | quote }}
+  AUTH__COOKIE_SAMESITE: {{ .Values.config.auth.cookieSamesite | quote }}
+  AUTH__OAUTH_REDIRECT_URI: {{ .Values.config.auth.oauthRedirectUri | quote }}
+  AUTH__STREAMLIT_UI_URL: {{ .Values.config.auth.streamlitUiUrl | quote }}
+  
+  {{- if .Values.config.auth.azureTenantId }}
+  AUTH__AZURE_TENANT_ID: {{ .Values.config.auth.azureTenantId | quote }}
+  {{- end }}
+  {{- if .Values.config.auth.azureClientId }}
+  AUTH__AZURE_CLIENT_ID: {{ .Values.config.auth.azureClientId | quote }}
+  {{- end }}
+  
+  # VCS configuration
+  VCS__ENABLED: {{ .Values.config.vcs.enabled | quote }}
+  VCS__POLL_INTERVAL_MINUTES: {{ .Values.config.vcs.pollIntervalMinutes | quote }}
+  VCS__WEBHOOK_ENABLED: {{ .Values.config.vcs.webhookEnabled | quote }}
+  
+  # Monitoring configuration
+  MONITORING__PROMETHEUS_ENABLED: {{ .Values.config.monitoring.prometheusEnabled | quote }}
