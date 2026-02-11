@@ -3,6 +3,8 @@
 [![PyPI - Version](https://img.shields.io/pypi/v/ansible-inspec)](https://pypi.org/project/ansible-inspec/)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/ansible-inspec)](https://pypi.org/project/ansible-inspec/)
 [![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)](https://pypi.org/project/ansible-inspec/)
+[![Helm Chart](https://img.shields.io/badge/helm-v0.2.6-blue)](https://htunn.github.io/ansible-inspec/helm)
+[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/ansible-inspec)](https://artifacthub.io/packages/search?repo=ansible-inspec)
 [![Docker Image Version](https://img.shields.io/docker/v/htunnthuthu/ansible-inspec?label=docker)](https://hub.docker.com/r/htunnthuthu/ansible-inspec)
 [![Docker Pulls](https://img.shields.io/docker/pulls/htunnthuthu/ansible-inspec)](https://hub.docker.com/r/htunnthuthu/ansible-inspec)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
@@ -237,6 +239,37 @@ pip install -e ".[server]"  # With server dependencies
 # OR
 pip install -e .             # CLI only
 ```
+
+### Kubernetes Installation with Helm
+
+Deploy ansible-inspec on Kubernetes using our official Helm chart:
+
+```bash
+# Add Helm repository
+helm repo add ansible-inspec https://htunn.github.io/ansible-inspec/helm
+helm repo update
+
+# Install with default settings (includes PostgreSQL)
+helm install my-release ansible-inspec/ansible-inspec
+
+# Or customize your installation
+helm install my-release ansible-inspec/ansible-inspec \
+  --set postgresql.auth.password=yourpassword \
+  --set replicaCount=3 \
+  --set autoscaling.enabled=true
+```
+
+**Features:**
+- 🔐 Production-ready with PostgreSQL database
+- 🔄 Auto-scaling with HorizontalPodAutoscaler
+- 🛡️ Security hardened (Pod Security Standards, RBAC, NetworkPolicy)
+- 📊 Prometheus integration via ServiceMonitor
+- 🚀 Multi-architecture support (amd64, arm64)
+
+**Resources:**
+- [Helm Chart Documentation](helm/ansible-inspec/README.md)
+- [Artifact Hub Page](https://artifacthub.io/packages/search?repo=ansible-inspec)
+- [Publishing Guide](helm/PUBLISHING.md)
 
 ### Server Setup
 
