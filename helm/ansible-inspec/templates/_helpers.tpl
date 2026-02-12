@@ -63,9 +63,9 @@ Create the name of the service account to use
 Database URL
 */}}
 {{- define "ansible-inspec.databaseUrl" -}}
-{{- if .Values.externalDatabase.enabled }}
+{{- if .Values.externalDatabase.enabled -}}
 postgresql://{{ .Values.externalDatabase.user }}:{{ .Values.externalDatabase.password }}@{{ .Values.externalDatabase.host }}:{{ .Values.externalDatabase.port }}/{{ .Values.externalDatabase.database }}
-{{- else }}
+{{- else -}}
 postgresql://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ include "ansible-inspec.fullname" . }}-postgresql:5432/{{ .Values.postgresql.auth.database }}
-{{- end }}
+{{- end -}}
 {{- end }}

@@ -2,7 +2,7 @@ apiVersion: v2
 name: ansible-inspec
 description: Enterprise compliance testing with Ansible and InSpec integration
 type: application
-version: 0.2.10
+version: 0.2.11
 appVersion: "0.2.7"
 
 keywords:
@@ -98,16 +98,16 @@ annotations:
     For complete documentation, see: https://github.com/Htunn/ansible-inspec
   artifacthub.io/changes: |
     - kind: fixed
-      description: Embed README content directly in Chart.yaml for Artifact Hub display
+      description: Fix PostgreSQL password consistency between subchart and secrets  
       links:
         - name: GitHub Release
-          url: https://github.com/Htunn/ansible-inspec/releases/tag/v0.2.10
+          url: https://github.com/Htunn/ansible-inspec/releases/tag/v0.2.11
+    - kind: fixed
+      description: Remove newline formatting issues in DATABASE_URL template
+    - kind: fixed
+      description: Prevent PostgreSQL subchart from generating random passwords
     - kind: changed
-      description: README now displays properly on Artifact Hub package page
-    - kind: fixed 
-      description: Init container uses consistent image repository (fixes GitHub issue #1)
-    - kind: added
-      description: Complete installation and configuration documentation
+      description: Simplified secrets configuration by removing unused postgresPassword
   artifacthub.io/containsSecurityUpdates: "false"
   artifacthub.io/prerelease: "false"
   artifacthub.io/images: |

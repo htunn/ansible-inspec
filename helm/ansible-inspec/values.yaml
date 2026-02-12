@@ -217,9 +217,6 @@ config:
 
 # Secrets configuration (use external secret management in production)
 secrets:
-  # Database password
-  postgresPassword: "changeme"
-  
   # JWT secret for token signing
   jwtSecret: "change-this-to-a-secure-random-string"
   
@@ -242,7 +239,13 @@ postgresql:
     username: ansibleinspec
     password: changeme
     database: ansibleinspec
+    # Ensure password consistency - disable random password generation
     existingSecret: ""
+    secretKeys:
+      adminPasswordKey: postgres-password
+      userPasswordKey: password
+    # Prevent random password generation on upgrade
+    usePasswordFiles: false
   architecture: standalone
   primary:
     persistence:
