@@ -2,7 +2,7 @@ apiVersion: v2
 name: ansible-inspec
 description: Enterprise compliance testing with Ansible and InSpec integration
 type: application
-version: 0.2.9
+version: 0.2.10
 appVersion: "0.2.7"
 
 keywords:
@@ -32,24 +32,87 @@ annotations:
   artifacthub.io/category: security
   artifacthub.io/license: GPL-3.0-or-later
   artifacthub.io/readme: |
-    file://README.md
+    # Ansible InSpec Helm Chart
+
+    This Helm chart deploys the Ansible InSpec server with PostgreSQL database on Kubernetes.
+
+    ## Overview
+
+    Ansible InSpec is a compliance and security automation tool that integrates InSpec profiles with Ansible workflows. It provides:
+
+    - **REST API Server**: FastAPI-based server with 30+ endpoints
+    - **Database Backend**: PostgreSQL with Prisma ORM
+    - **Authentication**: Azure AD OAuth2, local password auth, JWT tokens
+    - **RBAC**: Admin, operator, and viewer roles
+    - **VCS Integration**: GitHub, GitLab with webhook support
+    - **Job Management**: Execute InSpec profiles via Ansible
+    - **Security**: Encrypted credentials, secure secrets management
+
+    ## Prerequisites
+
+    - Kubernetes 1.19+
+    - Helm 3.0+
+    - PV provisioner support in the underlying infrastructure (for persistent storage)
+    - PostgreSQL 12+ (if using external database)
+
+    ## Installation
+
+    ### Basic Installation
+
+    ```bash
+    helm install ansible-inspec ./ansible-inspec
+    ```
+
+    ### Installation with Custom Values
+
+    ```bash
+    helm install ansible-inspec ./ansible-inspec \
+      --set image.tag=0.2.9 \
+      --set postgresql.auth.password=changeme \
+      --set secrets.jwtSecret=your-jwt-secret \
+      --set secrets.encryptionKey=your-encryption-key
+    ```
+
+    ### Installation from Repository
+
+    ```bash
+    helm repo add ansible-inspec https://htunn.github.io/ansible-inspec/helm
+    helm install ansible-inspec ansible-inspec/ansible-inspec
+    ```
+
+    ## Configuration
+
+    The following table lists the configurable parameters and their default values.
+
+    ### Common Parameters
+
+    | Parameter | Description | Default |
+    |-----------|-------------|---------|
+    | `replicaCount` | Number of replicas | `2` |
+    | `image.repository` | Image repository | `ghcr.io/htunn/ansible-inspec` |
+    | `image.tag` | Image tag | `0.2.9` |
+    | `image.pullPolicy` | Image pull policy | `IfNotPresent` |
+    | `service.type` | Service type | `ClusterIP` |
+    | `service.port` | Service port | `8080` |
+
+    For complete documentation, see: https://github.com/Htunn/ansible-inspec
   artifacthub.io/changes: |
     - kind: fixed
-      description: Fix init container image repository to use GitHub Container Registry
+      description: Embed README content directly in Chart.yaml for Artifact Hub display
       links:
         - name: GitHub Release
-          url: https://github.com/Htunn/ansible-inspec/releases/tag/v0.2.9
-    - kind: fixed
-      description: Database migrations now work with Prisma CLI included in GHCR image
+          url: https://github.com/Htunn/ansible-inspec/releases/tag/v0.2.10
     - kind: changed
-      description: Init container uses same image repository as main container
-    - kind: security
-      description: Consistent image source prevents deployment failures
+      description: README now displays properly on Artifact Hub package page
+    - kind: fixed 
+      description: Init container uses consistent image repository (fixes GitHub issue #1)
+    - kind: added
+      description: Complete installation and configuration documentation
   artifacthub.io/containsSecurityUpdates: "false"
   artifacthub.io/prerelease: "false"
   artifacthub.io/images: |
     - name: ansible-inspec
-      image: ghcr.io/htunn/ansible-inspec:0.2.8
+      image: ghcr.io/htunn/ansible-inspec:0.2.9
       platforms:
         - linux/amd64
         - linux/arm64
