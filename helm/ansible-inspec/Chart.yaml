@@ -2,7 +2,7 @@ apiVersion: v2
 name: ansible-inspec
 description: Enterprise compliance testing with Ansible and InSpec integration
 type: application
-version: 0.2.7
+version: 0.2.8
 appVersion: "0.2.7"
 
 keywords:
@@ -34,21 +34,17 @@ annotations:
   artifacthub.io/readme: |
     file://README.md
   artifacthub.io/changes: |
-    - kind: added
-      description: Initial Helm chart release
+    - kind: changed
+      description: Add README documentation to Artifact Hub display
       links:
         - name: GitHub Release
-          url: https://github.com/Htunn/ansible-inspec/releases/tag/v0.2.7
+          url: https://github.com/Htunn/ansible-inspec/releases/tag/v0.2.8
     - kind: added
-      description: PostgreSQL database support with Prisma ORM
+      description: Comprehensive 412-line README with installation guides
     - kind: added
-      description: Azure AD OAuth2 and password authentication
+      description: Configuration examples for production, Azure AD, and HA setups
     - kind: added
-      description: VCS integration with GitHub and GitLab webhooks
-    - kind: added
-      description: REST API with 30+ endpoints
-    - kind: security
-      description: Security hardening with Pod Security Standards
+      description: Troubleshooting guides and upgrade procedures
   artifacthub.io/containsSecurityUpdates: "false"
   artifacthub.io/prerelease: "false"
   artifacthub.io/images: |
