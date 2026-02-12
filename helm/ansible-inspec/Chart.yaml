@@ -2,7 +2,7 @@ apiVersion: v2
 name: ansible-inspec
 description: Enterprise compliance testing with Ansible and InSpec integration
 type: application
-version: 0.2.8
+version: 0.2.9
 appVersion: "0.2.7"
 
 keywords:
@@ -34,22 +34,22 @@ annotations:
   artifacthub.io/readme: |
     file://README.md
   artifacthub.io/changes: |
-    - kind: changed
-      description: Add README documentation to Artifact Hub display
+    - kind: fixed
+      description: Fix init container image repository to use GitHub Container Registry
       links:
         - name: GitHub Release
-          url: https://github.com/Htunn/ansible-inspec/releases/tag/v0.2.8
-    - kind: added
-      description: Comprehensive 412-line README with installation guides
-    - kind: added
-      description: Configuration examples for production, Azure AD, and HA setups
-    - kind: added
-      description: Troubleshooting guides and upgrade procedures
+          url: https://github.com/Htunn/ansible-inspec/releases/tag/v0.2.9
+    - kind: fixed
+      description: Database migrations now work with Prisma CLI included in GHCR image
+    - kind: changed
+      description: Init container uses same image repository as main container
+    - kind: security
+      description: Consistent image source prevents deployment failures
   artifacthub.io/containsSecurityUpdates: "false"
   artifacthub.io/prerelease: "false"
   artifacthub.io/images: |
     - name: ansible-inspec
-      image: docker.io/htunnthuthu/ansible-inspec:0.2.7
+      image: ghcr.io/htunn/ansible-inspec:0.2.8
       platforms:
         - linux/amd64
         - linux/arm64
@@ -61,8 +61,8 @@ annotations:
       url: https://github.com/Htunn/ansible-inspec/tree/main/helm/ansible-inspec
     - name: Documentation
       url: https://github.com/Htunn/ansible-inspec-docs
-    - name: Docker Hub
-      url: https://hub.docker.com/r/htunnthuthu/ansible-inspec
+    - name: GitHub Container Registry
+      url: https://github.com/Htunn/ansible-inspec/pkgs/container/ansible-inspec
     - name: PyPI Package
       url: https://pypi.org/project/ansible-inspec/
     - name: support
