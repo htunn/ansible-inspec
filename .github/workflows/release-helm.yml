@@ -53,25 +53,18 @@ jobs:
 
       - name: Update Helm chart dependencies
         run: |
-          cd helm
-          helm dependency update ansible-inspec/
+          helm dependency update helm/ansible-inspec/
 
       - name: Package Helm chart
         run: |
-          cd helm
-          helm package ansible-inspec/
+          helm package helm/ansible-inspec/ -d helm/
           echo "✅ Chart packaged successfully"
-          ls -lh ansible-inspec-*.tgz
+          ls -lh helm/ansible-inspec-*.tgz
 
       - name: Checkout gh-pages branch
         run: |
           git fetch origin gh-pages
           git checkout gh-pages
-
-      - name: Copy packaged chart to gh-pages
-        run: |
-          cp helm/ansible-inspec-*.tgz helm/
-          echo "✅ Copied chart package to helm/ directory"
 
       - name: Update Helm repository index
         run: |
