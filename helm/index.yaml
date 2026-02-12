@@ -48,14 +48,14 @@ entries:
         - url: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
     apiVersion: v2
     appVersion: 0.2.7
-    created: "2026-02-12T06:34:30.619953529Z"
+    created: "2026-02-12T06:40:50.644620036Z"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
       repository: https://charts.bitnami.com/bitnami
       version: 18.x.x
     description: Enterprise compliance testing with Ansible and InSpec integration
-    digest: f316f044ba88a739f9b0e3b52e3f34b7a8a4767a71cf0e4dd7c15a50b0f81fa0
+    digest: fd6f89bda8ea28f3107a5179bfc8a8cedfbf43639c1e1b36b840cfddf8c93a98
     home: https://github.com/Htunn/ansible-inspec
     keywords:
     - compliance
@@ -123,7 +123,7 @@ entries:
         - url: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
     apiVersion: v2
     appVersion: 0.2.7
-    created: "2026-02-12T06:34:30.614114508Z"
+    created: "2026-02-12T06:40:50.638969561Z"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -198,7 +198,7 @@ entries:
         - url: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
     apiVersion: v2
     appVersion: 0.2.6
-    created: "2026-02-12T06:34:30.607339468Z"
+    created: "2026-02-12T06:40:50.632286807Z"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -225,4 +225,4 @@ entries:
     urls:
     - https://htunn.github.io/ansible-inspec/helm/ansible-inspec-0.2.6.tgz
     version: 0.2.6
-generated: "2026-02-12T06:34:30.600755989Z"
+generated: "2026-02-12T06:40:50.625576552Z"
