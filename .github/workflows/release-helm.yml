@@ -78,10 +78,25 @@ jobs:
 
       - name: Checkout gh-pages branch
         run: |
+          # Save current directory state
+          pwd
+          ls -la helm/ || echo "helm directory not found"
+          
+          # Remove any existing chart files that might conflict
+          rm -f helm/ansible-inspec-*.tgz
+          
+          # Fetch and checkout gh-pages
           git fetch origin gh-pages
           git checkout gh-pages
+          
+          # Ensure helm directory exists
+          mkdir -p helm
+          
           # Restore chart file for gh-pages
           cp /tmp/helm-release/ansible-inspec-*.tgz helm/
+          
+          # Verify the file was copied
+          ls -la helm/ansible-inspec-*.tgz
 
       - name: Update Helm repository index
         run: |
