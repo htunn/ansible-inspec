@@ -8,6 +8,81 @@ entries:
           description: Initial Helm chart release
           links:
             - name: GitHub Release
+              url: https://github.com/Htunn/ansible-inspec/releases/tag/v0.2.7
+        - kind: added
+          description: PostgreSQL database support with Prisma ORM
+        - kind: added
+          description: Azure AD OAuth2 and password authentication
+        - kind: added
+          description: VCS integration with GitHub and GitLab webhooks
+        - kind: added
+          description: REST API with 30+ endpoints
+        - kind: security
+          description: Security hardening with Pod Security Standards
+      artifacthub.io/containsSecurityUpdates: "false"
+      artifacthub.io/images: |
+        - name: ansible-inspec
+          image: docker.io/htunnthuthu/ansible-inspec:0.2.7
+          platforms:
+            - linux/amd64
+            - linux/arm64
+        - name: postgresql
+          image: docker.io/bitnami/postgresql:15
+          whitelisted: true
+      artifacthub.io/license: GPL-3.0-or-later
+      artifacthub.io/links: |
+        - name: Chart Source
+          url: https://github.com/Htunn/ansible-inspec/tree/main/helm/ansible-inspec
+        - name: Documentation
+          url: https://github.com/Htunn/ansible-inspec-docs
+        - name: Docker Hub
+          url: https://hub.docker.com/r/htunnthuthu/ansible-inspec
+        - name: PyPI Package
+          url: https://pypi.org/project/ansible-inspec/
+        - name: support
+          url: https://github.com/Htunn/ansible-inspec/issues
+      artifacthub.io/maintainers: |
+        - name: Htunn Thu Thu
+          email: htunnthuthu.linux@gmail.com
+      artifacthub.io/prerelease: "false"
+      artifacthub.io/recommendations: |
+        - url: https://artifacthub.io/packages/helm/bitnami/postgresql
+        - url: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
+    apiVersion: v2
+    appVersion: 0.2.7
+    created: "2026-02-12T06:21:30.474400034Z"
+    dependencies:
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: https://charts.bitnami.com/bitnami
+      version: 18.x.x
+    description: Enterprise compliance testing with Ansible and InSpec integration
+    digest: 032618480dd565a4d42aeb04919b66e708d15d6fc7a4eb1c42dec627fa5aeada
+    home: https://github.com/Htunn/ansible-inspec
+    keywords:
+    - compliance
+    - security
+    - ansible
+    - inspec
+    - devops
+    - audit
+    maintainers:
+    - email: htunnthuthu.linux@gmail.com
+      name: ansible-inspec contributors
+    name: ansible-inspec
+    sources:
+    - https://github.com/Htunn/ansible-inspec
+    type: application
+    urls:
+    - https://htunn.github.io/ansible-inspec/helm/ansible-inspec-0.2.7.tgz
+    version: 0.2.7
+  - annotations:
+      artifacthub.io/category: security
+      artifacthub.io/changes: |
+        - kind: added
+          description: Initial Helm chart release
+          links:
+            - name: GitHub Release
               url: https://github.com/Htunn/ansible-inspec/releases/tag/v0.2.6
         - kind: added
           description: PostgreSQL database support with Prisma ORM
@@ -50,7 +125,7 @@ entries:
         - url: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
     apiVersion: v2
     appVersion: 0.2.6
-    created: "2026-02-11T12:56:24.703209+08:00"
+    created: "2026-02-12T06:21:30.467653083Z"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -77,4 +152,4 @@ entries:
     urls:
     - https://htunn.github.io/ansible-inspec/helm/ansible-inspec-0.2.6.tgz
     version: 0.2.6
-generated: "2026-02-11T12:56:24.697332+08:00"
+generated: "2026-02-12T06:21:30.461494158Z"
