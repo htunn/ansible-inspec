@@ -3,6 +3,137 @@ entries:
   ansible-inspec:
   - annotations:
       artifacthub.io/category: security
+      artifacthub.io/changes: "- kind: fixed\n  description: Fix PostgreSQL password
+        consistency between subchart and secrets  \n  links:\n    - name: GitHub Release\n
+        \     url: https://github.com/Htunn/ansible-inspec/releases/tag/v0.2.11\n-
+        kind: fixed\n  description: Remove newline formatting issues in DATABASE_URL
+        template\n- kind: fixed\n  description: Prevent PostgreSQL subchart from generating
+        random passwords\n- kind: changed\n  description: Simplified secrets configuration
+        by removing unused postgresPassword\n"
+      artifacthub.io/containsSecurityUpdates: "false"
+      artifacthub.io/images: |
+        - name: ansible-inspec
+          image: ghcr.io/htunn/ansible-inspec:0.2.9
+          platforms:
+            - linux/amd64
+            - linux/arm64
+        - name: postgresql
+          image: docker.io/bitnami/postgresql:15
+          whitelisted: true
+      artifacthub.io/license: GPL-3.0-or-later
+      artifacthub.io/links: |
+        - name: Chart Source
+          url: https://github.com/Htunn/ansible-inspec/tree/main/helm/ansible-inspec
+        - name: Documentation
+          url: https://github.com/Htunn/ansible-inspec-docs
+        - name: GitHub Container Registry
+          url: https://github.com/Htunn/ansible-inspec/pkgs/container/ansible-inspec
+        - name: PyPI Package
+          url: https://pypi.org/project/ansible-inspec/
+        - name: support
+          url: https://github.com/Htunn/ansible-inspec/issues
+      artifacthub.io/maintainers: |
+        - name: Htunn Thu Thu
+          email: htunnthuthu.linux@gmail.com
+      artifacthub.io/prerelease: "false"
+      artifacthub.io/readme: |
+        # Ansible InSpec Helm Chart
+
+        This Helm chart deploys the Ansible InSpec server with PostgreSQL database on Kubernetes.
+
+        ## Overview
+
+        Ansible InSpec is a compliance and security automation tool that integrates InSpec profiles with Ansible workflows. It provides:
+
+        - **REST API Server**: FastAPI-based server with 30+ endpoints
+        - **Database Backend**: PostgreSQL with Prisma ORM
+        - **Authentication**: Azure AD OAuth2, local password auth, JWT tokens
+        - **RBAC**: Admin, operator, and viewer roles
+        - **VCS Integration**: GitHub, GitLab with webhook support
+        - **Job Management**: Execute InSpec profiles via Ansible
+        - **Security**: Encrypted credentials, secure secrets management
+
+        ## Prerequisites
+
+        - Kubernetes 1.19+
+        - Helm 3.0+
+        - PV provisioner support in the underlying infrastructure (for persistent storage)
+        - PostgreSQL 12+ (if using external database)
+
+        ## Installation
+
+        ### Basic Installation
+
+        ```bash
+        helm install ansible-inspec ./ansible-inspec
+        ```
+
+        ### Installation with Custom Values
+
+        ```bash
+        helm install ansible-inspec ./ansible-inspec \
+          --set image.tag=0.2.9 \
+          --set postgresql.auth.password=changeme \
+          --set secrets.jwtSecret=your-jwt-secret \
+          --set secrets.encryptionKey=your-encryption-key
+        ```
+
+        ### Installation from Repository
+
+        ```bash
+        helm repo add ansible-inspec https://htunn.github.io/ansible-inspec/helm
+        helm install ansible-inspec ansible-inspec/ansible-inspec
+        ```
+
+        ## Configuration
+
+        The following table lists the configurable parameters and their default values.
+
+        ### Common Parameters
+
+        | Parameter | Description | Default |
+        |-----------|-------------|---------|
+        | `replicaCount` | Number of replicas | `2` |
+        | `image.repository` | Image repository | `ghcr.io/htunn/ansible-inspec` |
+        | `image.tag` | Image tag | `0.2.9` |
+        | `image.pullPolicy` | Image pull policy | `IfNotPresent` |
+        | `service.type` | Service type | `ClusterIP` |
+        | `service.port` | Service port | `8080` |
+
+        For complete documentation, see: https://github.com/Htunn/ansible-inspec
+      artifacthub.io/recommendations: |
+        - url: https://artifacthub.io/packages/helm/bitnami/postgresql
+        - url: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
+    apiVersion: v2
+    appVersion: 0.2.7
+    created: "2026-02-12T08:56:25.216757291Z"
+    dependencies:
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: https://charts.bitnami.com/bitnami
+      version: 18.x.x
+    description: Enterprise compliance testing with Ansible and InSpec integration
+    digest: 762b006b1042337f4a7e0beffe4a21481c6e803ddf5a1576efd9d4001ba80a4f
+    home: https://github.com/Htunn/ansible-inspec
+    keywords:
+    - compliance
+    - security
+    - ansible
+    - inspec
+    - devops
+    - audit
+    maintainers:
+    - email: htunnthuthu.linux@gmail.com
+      name: ansible-inspec contributors
+    name: ansible-inspec
+    sources:
+    - https://github.com/Htunn/ansible-inspec
+    type: application
+    urls:
+    - https://htunn.github.io/ansible-inspec/helm/ansible-inspec-0.2.11.tgz
+    version: 0.2.11
+  - annotations:
+      artifacthub.io/category: security
       artifacthub.io/changes: "- kind: fixed\n  description: Embed README content
         directly in Chart.yaml for Artifact Hub display\n  links:\n    - name: GitHub
         Release\n      url: https://github.com/Htunn/ansible-inspec/releases/tag/v0.2.10\n-
@@ -106,7 +237,7 @@ entries:
         - url: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
     apiVersion: v2
     appVersion: 0.2.7
-    created: "2026-02-12T08:28:56.209794069Z"
+    created: "2026-02-12T08:56:25.210145673Z"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -179,7 +310,7 @@ entries:
         - url: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
     apiVersion: v2
     appVersion: 0.2.7
-    created: "2026-02-12T08:28:56.233968016Z"
+    created: "2026-02-12T08:56:25.240649983Z"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -252,7 +383,7 @@ entries:
         - url: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
     apiVersion: v2
     appVersion: 0.2.7
-    created: "2026-02-12T08:28:56.22763447Z"
+    created: "2026-02-12T08:56:25.234408284Z"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -327,7 +458,7 @@ entries:
         - url: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
     apiVersion: v2
     appVersion: 0.2.7
-    created: "2026-02-12T08:28:56.221449336Z"
+    created: "2026-02-12T08:56:25.228210563Z"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -402,7 +533,7 @@ entries:
         - url: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
     apiVersion: v2
     appVersion: 0.2.6
-    created: "2026-02-12T08:28:56.215755359Z"
+    created: "2026-02-12T08:56:25.221783985Z"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -429,4 +560,4 @@ entries:
     urls:
     - https://htunn.github.io/ansible-inspec/helm/ansible-inspec-0.2.6.tgz
     version: 0.2.6
-generated: "2026-02-12T08:28:56.20287911Z"
+generated: "2026-02-12T08:56:25.203263779Z"
