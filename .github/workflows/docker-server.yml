@@ -66,11 +66,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set repository variables
+        id: repo
+        run: |
+          echo "owner_lower=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+          echo "repo_lower=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          images: ghcr.io/${{ steps.repo.outputs.owner_lower }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=${{ steps.version.outputs.version }}
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
@@ -100,26 +106,26 @@ jobs:
       - name: Test server image
         run: |
           echo "Testing server image..."
-          docker pull ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+          docker pull ghcr.io/${{ steps.repo.outputs.owner_lower }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
 
           # Test that required binaries exist
-          docker run --rm --entrypoint /bin/sh ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} -c "which ansible-inspec"
-          docker run --rm --entrypoint /bin/sh ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} -c "which prisma"
-          docker run --rm --entrypoint /bin/sh ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} -c "which uvicorn"
-          docker run --rm --entrypoint /bin/sh ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} -c "which inspec"
+          docker run --rm --entrypoint /bin/sh ghcr.io/${{ steps.repo.outputs.owner_lower }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} -c "which ansible-inspec"
+          docker run --rm --entrypoint /bin/sh ghcr.io/${{ steps.repo.outputs.owner_lower }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} -c "which prisma"
+          docker run --rm --entrypoint /bin/sh ghcr.io/${{ steps.repo.outputs.owner_lower }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} -c "which uvicorn"
+          docker run --rm --entrypoint /bin/sh ghcr.io/${{ steps.repo.outputs.owner_lower }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} -c "which inspec"
       - name: Create release summary
         run: |
           cat >> $GITHUB_STEP_SUMMARY << EOF
           ## 🐳 Docker Server Image Built Successfully
 
-          **Image:** \`${{ vars.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}\`
+          **Image:** \`ghcr.io/${{ steps.repo.outputs.owner_lower }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}\`
 
           **Tags:**
           $(echo '${{ steps.meta.outputs.tags }}' | sed 's/^/- /')
 
           **Pull command:**
           \`\`\`bash
-          docker pull ${{ vars.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+          docker pull ghcr.io/${{ steps.repo.outputs.owner_lower }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
           \`\`\`
 
           **Run server:**
@@ -127,7 +133,7 @@ jobs:
           docker run -p 8080:8080 \\
             -e DATABASE_URL="postgresql://user:pass@host:5432/db" \\
             -e JWT_SECRET_KEY="your-secret" \\
-            ${{ vars.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+            ghcr.io/${{ steps.repo.outputs.owner_lower }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
           \`\`\`
 
           **Kubernetes deployment:**
@@ -144,6 +150,8 @@ jobs:
     permissions:
       contents: read
       security-events: write
+    env:
+      IMAGE_NAME: ansible-inspec
 
     steps:
       - name: Checkout repository
@@ -153,6 +161,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+
+      - name: Set repository variables
+        id: repo
+        run: |
+          echo "owner_lower=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
       - name: Extract version
         id: version
@@ -167,7 +180,7 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+          image-ref: ghcr.io/${{ steps.repo.outputs.owner_lower }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
           format: "sarif"
           output: "trivy-results.sarif"
           severity: "CRITICAL,HIGH"
@@ -181,6 +194,6 @@ jobs:
       - name: Run Trivy for summary
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+          image-ref: ghcr.io/${{ steps.repo.outputs.owner_lower }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
           format: "table"
           severity: "CRITICAL,HIGH"
