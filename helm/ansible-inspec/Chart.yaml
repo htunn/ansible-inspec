@@ -2,8 +2,8 @@ apiVersion: v2
 name: ansible-inspec
 description: Enterprise compliance testing with Ansible and InSpec integration
 type: application
-version: 0.2.6
-appVersion: "0.2.6"
+version: 0.2.7
+appVersion: "0.2.7"
 
 keywords:
   - compliance
@@ -36,7 +36,7 @@ annotations:
       description: Initial Helm chart release
       links:
         - name: GitHub Release
-          url: https://github.com/Htunn/ansible-inspec/releases/tag/v0.2.6
+          url: https://github.com/Htunn/ansible-inspec/releases/tag/v0.2.7
     - kind: added
       description: PostgreSQL database support with Prisma ORM
     - kind: added
@@ -51,7 +51,7 @@ annotations:
   artifacthub.io/prerelease: "false"
   artifacthub.io/images: |
     - name: ansible-inspec
-      image: docker.io/htunnthuthu/ansible-inspec:0.2.6
+      image: docker.io/htunnthuthu/ansible-inspec:0.2.7
       platforms:
         - linux/amd64
         - linux/arm64

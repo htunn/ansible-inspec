@@ -33,7 +33,7 @@ helm install ansible-inspec ./ansible-inspec
 
 ```bash
 helm install ansible-inspec ./ansible-inspec \
-  --set image.tag=0.2.6 \
+  --set image.tag=0.2.7 \
   --set postgresql.auth.password=changeme \
   --set secrets.jwtSecret=your-jwt-secret \
   --set secrets.encryptionKey=your-encryption-key
@@ -56,7 +56,7 @@ The following table lists the configurable parameters and their default values.
 |-----------|-------------|---------|
 | `replicaCount` | Number of replicas | `2` |
 | `image.repository` | Image repository | `ghcr.io/htunn/ansible-inspec` |
-| `image.tag` | Image tag | `0.2.6` |
+| `image.tag` | Image tag | `0.2.7` |
 | `image.pullPolicy` | Image pull policy | `IfNotPresent` |
 | `service.type` | Service type | `ClusterIP` |
 | `service.port` | Service port | `8080` |
@@ -388,7 +388,7 @@ helm rollback ansible-inspec
 
 | Chart Version | App Version | Kubernetes | PostgreSQL |
 |---------------|-------------|------------|------------|
-| 0.2.6 | 0.2.6 | 1.19+ | 12+ |
+| 0.2.7 | 0.2.7 | 1.19+ | 12+ |
 
 ## Uninstalling
 

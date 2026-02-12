@@ -13,7 +13,7 @@ replicaCount: 2
 image:
   repository: ghcr.io/htunn/ansible-inspec
   pullPolicy: IfNotPresent
-  tag: "0.2.6"
+  tag: "0.2.7"
 
 imagePullSecrets: []
 nameOverride: ""
@@ -337,15 +337,21 @@ serviceMonitor:
 initContainers:
   # Database migration init container
   - name: db-migrate
-    image: "htunnthuthu/ansible-inspec:0.2.6"
+    image: "htunnthuthu/ansible-inspec:0.2.7"
     imagePullPolicy: IfNotPresent
     command:
       - sh
       - -c
       - |
+        set -e  # Exit on error
         echo "Running database migrations..."
+        if ! command -v prisma >/dev/null 2>&1; then
+            echo "ERROR: Prisma CLI not found!"
+            exit 1
+        fi
+        echo "Prisma CLI found, proceeding with migration..."
         prisma db push --accept-data-loss --skip-generate
-        echo "Database migration completed"
+        echo "Database migration completed successfully"
     envFrom:
       - configMapRef:
           name: '{{ include "ansible-inspec.fullname" . }}'

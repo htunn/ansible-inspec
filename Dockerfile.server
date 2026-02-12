@@ -3,7 +3,7 @@ FROM python:3.13-slim AS builder
 
 LABEL maintainer="ansible-inspec project contributors"
 LABEL description="Compliance testing with Ansible and InSpec integration - API Server"
-LABEL version="0.2.6"
+LABEL version="0.2.7"
 
 # Install build dependencies including Node.js for Prisma
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -23,12 +23,20 @@ WORKDIR /app
 COPY pyproject.toml README.md LICENSE NOTICE schema.prisma ./
 COPY lib/ lib/
 
-# Install Python dependencies
+# Install Python dependencies and Prisma with multi-architecture support
 RUN pip install --no-cache-dir --upgrade pip && \
-  pip install --no-cache-dir .
+    pip install --no-cache-dir . && \
+    # Install Prisma CLI for migrations and multi-arch support
+    pip install --no-cache-dir prisma
 
-# Generate Prisma client
-RUN prisma generate
+# Generate Prisma client and fetch query engines for both architectures
+RUN prisma generate && \
+    # Explicitly fetch ARM64 query engine binary
+    PRISMA_QUERY_ENGINE_BINARY=query-engine-linux-arm64-openssl-3.0.x \
+    prisma fetch || echo "ARM64 binary fetch failed, continuing..." && \
+    # Explicitly fetch x86_64 query engine binary  
+    PRISMA_QUERY_ENGINE_BINARY=query-engine-linux-x86_64-openssl-3.0.x \
+    prisma fetch || echo "x86_64 binary fetch failed, continuing..."
 
 # Copy Prisma binaries to a location accessible in final stage
 RUN mkdir -p /tmp/prisma-binaries && \
@@ -37,24 +45,20 @@ RUN mkdir -p /tmp/prisma-binaries && \
 # Final stage - runtime
 FROM python:3.13-slim
 
-# Install runtime dependencies including Node.js for Prisma
+# Install runtime dependencies including Node.js, InSpec, and create user
 RUN apt-get update && apt-get install -y --no-install-recommends \
-  openssh-client \
-  git \
-  curl \
-  ca-certificates \
-  gnupg \
-  && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-  && apt-get install -y nodejs \
-  && rm -rf /var/lib/apt/lists/*
-
-# Install InSpec for profile execution
-RUN curl -fsSL https://omnitruck.chef.io/install.sh | bash -s -- -P inspec
-
-# Create non-root user and setup directories
-RUN useradd -m -u 1000 -s /bin/bash ansibleinspec && \
-  mkdir -p /app/data /app/profiles /home/ansibleinspec/.cache && \
-  chown -R ansibleinspec:ansibleinspec /app /home/ansibleinspec/.cache
+    openssh-client \
+    git \
+    curl \
+    ca-certificates \
+    gnupg \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -fsSL https://omnitruck.chef.io/install.sh | bash -s -- -P inspec \
+    && useradd -m -u 1000 -s /bin/bash ansibleinspec \
+    && mkdir -p /app/data /app/profiles /home/ansibleinspec/.cache \
+    && chown -R ansibleinspec:ansibleinspec /app /home/ansibleinspec/.cache
 
 # Copy installed packages from builder
 COPY --from=builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
@@ -72,8 +76,8 @@ COPY --from=builder --chown=ansibleinspec:ansibleinspec /tmp/prisma-binaries/pri
 USER ansibleinspec
 WORKDIR /app
 
-# Set Prisma binary paths to use non-root user's cache
-ENV PRISMA_QUERY_ENGINE_BINARY=/home/ansibleinspec/.cache/prisma-python/binaries/5.17.0/393aa359c9ad4a4bb28630fb5613f9c281cde053/node_modules/prisma/query-engine-linux-arm64-openssl-3.0.x
+# Remove hardcoded ARM64 path - let Prisma auto-detect architecture
+# ENV PRISMA_QUERY_ENGINE_BINARY will be set by Prisma based on detected architecture
 
 # Expose API port
 EXPOSE 8080

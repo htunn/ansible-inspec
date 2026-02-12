@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.7] - 2026-02-11
+
+### Fixed
+- **CRITICAL**: Added ARM64/aarch64 Prisma query engine binary support for ARM64 Kubernetes clusters
+- **CRITICAL**: Fixed silent database migration failures by adding Prisma CLI to Docker images and proper error handling to init containers
+- **CRITICAL**: Fixed Azure AD authentication by correctly mapping `secrets.azureClientSecret` to `AUTH__AZURE_CLIENT_SECRET` environment variable
+- Added proper error handling and validation to database migration init container
+- Enhanced both main and server Dockerfiles with multi-architecture Prisma support
+- Optimized Docker build processes by merging RUN instructions
+- Removed hardcoded ARM64 paths in server Dockerfile for proper auto-detection
+
+### Added
+- Multi-architecture Docker image support (linux/amd64, linux/arm64) for both main and server images
+- Prisma CLI installation in both Docker images for reliable database migrations
+- Comprehensive validation scripts (`test-fixes.sh`, `validate-deployment.sh`)
+- Better error messages and troubleshooting information for failed migrations
+
+### Changed
+- Updated Helm chart version to 0.2.7
+- Updated both Dockerfile and Dockerfile.server versions to 0.2.7
+- Improved init container script with `set -e` for fail-fast behavior
+- Enhanced Azure AD client secret handling in Helm templates
+- Removed hardcoded architecture paths for better cross-platform compatibility
+
+### Technical Details
+This release resolves three critical production issues that prevented the application from working properly on ARM64 clusters, with database storage, or with Azure AD authentication. All database-dependent features now work correctly on both x86_64 and ARM64 architectures.
+
 ## [0.2.6] - 2026-02-11
 
 ### Changed
