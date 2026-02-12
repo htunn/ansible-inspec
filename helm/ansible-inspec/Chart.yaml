@@ -31,6 +31,8 @@ home: https://github.com/Htunn/ansible-inspec
 annotations:
   artifacthub.io/category: security
   artifacthub.io/license: GPL-3.0-or-later
+  artifacthub.io/readme: |
+    file://README.md
   artifacthub.io/changes: |
     - kind: added
       description: Initial Helm chart release
