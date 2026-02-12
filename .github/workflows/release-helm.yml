@@ -82,12 +82,20 @@ jobs:
           pwd
           ls -la helm/ || echo "helm directory not found"
           
-          # Remove any existing chart files that might conflict
-          rm -f helm/ansible-inspec-*.tgz
+          # Clean up any untracked files that might conflict
+          git clean -fd helm/ || echo "No files to clean"
           
-          # Fetch and checkout gh-pages
+          # Remove any existing chart files that might conflict
+          rm -f helm/ansible-inspec-*.tgz || echo "No chart files to remove"
+          
+          # Reset any staged changes
+          git reset --hard HEAD || echo "Nothing to reset"
+          
+          # Fetch latest gh-pages
           git fetch origin gh-pages
-          git checkout gh-pages
+          
+          # Force checkout gh-pages (overwrite any conflicts)
+          git checkout --force gh-pages
           
           # Ensure helm directory exists
           mkdir -p helm
