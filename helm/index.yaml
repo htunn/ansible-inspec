@@ -5,6 +5,144 @@ entries:
       artifacthub.io/category: security
       artifacthub.io/changes: |
         - kind: fixed
+          description: Fix Streamlit password login authentication flow
+          links:
+            - name: GitHub Release
+              url: https://github.com/Htunn/ansible-inspec/releases/tag/v0.2.8
+        - kind: fixed
+          description: Fix OAuth subdomain routing for multi-domain deployments
+        - kind: fixed
+          description: Fix service selector conflicts between API and UI pods
+        - kind: changed
+          description: Add component-based pod labeling for proper service routing
+        - kind: changed
+          description: Update to application version 0.2.8
+      artifacthub.io/containsSecurityUpdates: "false"
+      artifacthub.io/images: |
+        - name: ansible-inspec
+          image: ghcr.io/htunn/ansible-inspec:0.2.7
+          platforms:
+            - linux/amd64
+            - linux/arm64
+        - name: postgresql
+          image: docker.io/bitnami/postgresql:15
+          whitelisted: true
+      artifacthub.io/license: GPL-3.0-or-later
+      artifacthub.io/links: |
+        - name: Chart Source
+          url: https://github.com/Htunn/ansible-inspec/tree/main/helm/ansible-inspec
+        - name: Documentation
+          url: https://github.com/Htunn/ansible-inspec-docs
+        - name: GitHub Container Registry
+          url: https://github.com/Htunn/ansible-inspec/pkgs/container/ansible-inspec
+        - name: PyPI Package
+          url: https://pypi.org/project/ansible-inspec/
+        - name: support
+          url: https://github.com/Htunn/ansible-inspec/issues
+      artifacthub.io/maintainers: |
+        - name: Htunn Thu Thu
+          email: htunnthuthu.linux@gmail.com
+      artifacthub.io/prerelease: "false"
+      artifacthub.io/readme: |
+        # Ansible InSpec Helm Chart
+
+        This Helm chart deploys the Ansible InSpec server with PostgreSQL database on Kubernetes.
+
+        ## Overview
+
+        Ansible InSpec is a compliance and security automation tool that integrates InSpec profiles with Ansible workflows. It provides:
+
+        - **REST API Server**: FastAPI-based server with 30+ endpoints
+        - **Database Backend**: PostgreSQL with Prisma ORM
+        - **Authentication**: Azure AD OAuth2, local password auth, JWT tokens
+        - **RBAC**: Admin, operator, and viewer roles
+        - **VCS Integration**: GitHub, GitLab with webhook support
+        - **Job Management**: Execute InSpec profiles via Ansible
+        - **Security**: Encrypted credentials, secure secrets management
+
+        ## Prerequisites
+
+        - Kubernetes 1.19+
+        - Helm 3.0+
+        - PV provisioner support in the underlying infrastructure (for persistent storage)
+        - PostgreSQL 12+ (if using external database)
+
+        ## Installation
+
+        ### Basic Installation
+
+        ```bash
+        helm install ansible-inspec ./ansible-inspec
+        ```
+
+        ### Installation with Custom Values
+
+        ```bash
+        helm install ansible-inspec ./ansible-inspec \
+          --set image.tag=0.2.8 \
+          --set postgresql.auth.password=changeme \
+          --set secrets.jwtSecret=your-jwt-secret \
+          --set secrets.encryptionKey=your-encryption-key
+        ```
+
+        ### Installation from Repository
+
+        ```bash
+        helm repo add ansible-inspec https://htunn.github.io/ansible-inspec/helm
+        helm install ansible-inspec ansible-inspec/ansible-inspec
+        ```
+
+        ## Configuration
+
+        The following table lists the configurable parameters and their default values.
+
+        ### Common Parameters
+
+        | Parameter | Description | Default |
+        |-----------|-------------|---------|
+        | `replicaCount` | Number of replicas | `2` |
+        | `image.repository` | Image repository | `ghcr.io/htunn/ansible-inspec` |
+        | `image.tag` | Image tag | `0.2.8` |
+        | `image.pullPolicy` | Image pull policy | `IfNotPresent` |
+        | `service.type` | Service type | `ClusterIP` |
+        | `service.port` | Service port | `8080` |
+
+        For complete documentation, see: https://github.com/Htunn/ansible-inspec
+      artifacthub.io/recommendations: |
+        - url: https://artifacthub.io/packages/helm/bitnami/postgresql
+        - url: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
+    apiVersion: v2
+    appVersion: 0.2.8
+    created: "2026-02-13T05:28:43.702632144Z"
+    dependencies:
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: https://charts.bitnami.com/bitnami
+      version: 18.x.x
+    description: Enterprise compliance testing with Ansible and InSpec integration
+    digest: f2fa85fdc03eb27c6a275b4fae052a1ba9e8f990360361e111cea4fb2dd97213
+    home: https://github.com/Htunn/ansible-inspec
+    keywords:
+    - compliance
+    - security
+    - ansible
+    - inspec
+    - devops
+    - audit
+    maintainers:
+    - email: htunnthuthu.linux@gmail.com
+      name: ansible-inspec contributors
+    name: ansible-inspec
+    sources:
+    - https://github.com/Htunn/ansible-inspec
+    type: application
+    urls:
+    - https://htunn.github.io/ansible-inspec/helm/ansible-inspec-0.2.13.tgz
+    version: 0.2.13
+  - annotations:
+      artifacthub.io/category: security
+      artifacthub.io/changes: |
+        - kind: fixed
           description: Fix image version references to use existing Docker image 0.2.7
           links:
             - name: GitHub Release
@@ -111,7 +249,7 @@ entries:
         - url: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
     apiVersion: v2
     appVersion: 0.2.7
-    created: "2026-02-12T10:55:54.717900488Z"
+    created: "2026-02-13T05:28:43.693031656Z"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -242,7 +380,7 @@ entries:
         - url: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
     apiVersion: v2
     appVersion: 0.2.7
-    created: "2026-02-12T10:55:54.71167167Z"
+    created: "2026-02-13T05:28:43.685744463Z"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -373,7 +511,7 @@ entries:
         - url: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
     apiVersion: v2
     appVersion: 0.2.7
-    created: "2026-02-12T10:55:54.705251047Z"
+    created: "2026-02-13T05:28:43.678976835Z"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -446,7 +584,7 @@ entries:
         - url: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
     apiVersion: v2
     appVersion: 0.2.7
-    created: "2026-02-12T10:55:54.741555865Z"
+    created: "2026-02-13T05:28:43.736971517Z"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -519,7 +657,7 @@ entries:
         - url: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
     apiVersion: v2
     appVersion: 0.2.7
-    created: "2026-02-12T10:55:54.735317757Z"
+    created: "2026-02-13T05:28:43.729454304Z"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -594,7 +732,7 @@ entries:
         - url: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
     apiVersion: v2
     appVersion: 0.2.7
-    created: "2026-02-12T10:55:54.72912061Z"
+    created: "2026-02-13T05:28:43.718623841Z"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -669,7 +807,7 @@ entries:
         - url: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
     apiVersion: v2
     appVersion: 0.2.6
-    created: "2026-02-12T10:55:54.722972333Z"
+    created: "2026-02-13T05:28:43.712694555Z"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -696,4 +834,4 @@ entries:
     urls:
     - https://htunn.github.io/ansible-inspec/helm/ansible-inspec-0.2.6.tgz
     version: 0.2.6
-generated: "2026-02-12T10:55:54.698594906Z"
+generated: "2026-02-13T05:28:43.670708601Z"
