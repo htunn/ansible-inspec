@@ -8,7 +8,7 @@ This package combines Ansible and InSpec to provide infrastructure
 compliance and security testing capabilities.
 """
 
-__version__ = '0.2.9'
+__version__ = '0.2.10'
 __author__ = 'Htunn Thu Thu'
 __license__ = 'GPL-3.0'
 

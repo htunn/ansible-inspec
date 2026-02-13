@@ -3,7 +3,7 @@
 [![PyPI - Version](https://img.shields.io/pypi/v/ansible-inspec)](https://pypi.org/project/ansible-inspec/)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/ansible-inspec)](https://pypi.org/project/ansible-inspec/)
 [![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)](https://pypi.org/project/ansible-inspec/)
-[![Helm Chart](https://img.shields.io/badge/helm-v0.2.6-blue)](https://htunn.github.io/ansible-inspec/helm)
+[![Helm Chart](https://img.shields.io/badge/helm-v0.2.15-blue)](https://htunn.github.io/ansible-inspec/helm)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/ansible-inspec)](https://artifacthub.io/packages/search?repo=ansible-inspec)
 [![GitHub Container Registry](https://img.shields.io/badge/ghcr.io-htunn%2Fansible--inspec-blue)](https://github.com/Htunn/ansible-inspec/pkgs/container/ansible-inspec)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
