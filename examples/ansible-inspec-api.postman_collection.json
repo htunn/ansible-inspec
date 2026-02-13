@@ -1,0 +1,1034 @@
+{
+	"info": {
+		"_postman_id": "ansible-inspec-api-collection",
+		"name": "Ansible-InSpec API",
+		"description": "Complete API collection for ansible-inspec server - enterprise compliance testing with Ansible and InSpec integration.\n\n## Getting Started\n\n1. **Set Collection Variables**: Configure `baseUrl` (e.g., `https://ansible-inspec.tripleseven.cloud` or `http://localhost:8080`)\n2. **Authenticate**: Run \"Password Login\" request to get JWT token (automatically saved)\n3. **Explore Endpoints**: Try health check, job templates, jobs, and VCS management\n\n## Authentication\n\nThe API uses JWT (JSON Web Tokens) for authentication. After successful login, the token is automatically saved to the `authToken` collection variable and included in subsequent requests.\n\n## Admin Credentials\n\nDefault admin credentials (configure via environment variables):\n- **Username**: admin\n- **Password**: Set via `ADMIN_PASSWORD` env var\n- **Email**: Set via `ADMIN_EMAIL` env var\n\n## Environment Variables\n\n- `baseUrl`: API server base URL (default: http://localhost:8080)\n- `authToken`: JWT token (automatically set after login)\n- `username`: Login username (default: admin)\n- `password`: Login password (set your admin password)",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "ansible-inspec"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"description": "Authentication endpoints for password-based and Azure AD login",
+			"item": [
+				{
+					"name": "Password Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Save access token to collection variable",
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.access_token) {",
+									"        pm.collectionVariables.set('authToken', response.access_token);",
+									"        console.log('✓ Auth token saved successfully');",
+									"        pm.test('Login successful', function() {",
+									"            pm.expect(response).to.have.property('access_token');",
+									"            pm.expect(response).to.have.property('token_type', 'bearer');",
+									"        });",
+									"    }",
+									"} else {",
+									"    pm.test('Login failed', function() {",
+									"        pm.response.to.have.status(401);",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"{{username}}\",\n    \"password\": \"{{password}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/password-login",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "password-login"]
+						},
+						"description": "Login with username and password. Returns JWT token for authentication.\n\n**Request Body**:\n- `username`: User's username\n- `password`: User's password\n\n**Response**:\n- `access_token`: JWT token (use in Authorization header)\n- `token_type`: Token type (bearer)\n- `user_id`: User ID\n- `username`: Username\n- `roles`: User roles (e.g., [\"admin\"])"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Current User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('User info returned', function() {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response).to.have.property('username');",
+									"    pm.expect(response).to.have.property('email');",
+									"    pm.expect(response).to.have.property('roles');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/me",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "me"]
+						},
+						"description": "Get current authenticated user information.\n\n**Requires**: Valid JWT token\n\n**Response**:\n- `id`: User ID\n- `username`: Username\n- `email`: Email address\n- `name`: Full name\n- `roles`: User roles array\n- `tenant_id`: Tenant ID (if Azure AD)"
+					},
+					"response": []
+				},
+				{
+					"name": "Azure AD Login",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "login"]
+						},
+						"description": "Initiate Azure AD OAuth login flow. Redirects to Microsoft login page.\n\n**Note**: This endpoint is for browser-based authentication. For API testing, use password login instead."
+					},
+					"response": []
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/logout",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "logout"]
+						},
+						"description": "Logout and invalidate session.\n\n**Requires**: Valid JWT token"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Job Templates",
+			"description": "Job template management - create, list, update, delete, and launch compliance testing jobs",
+			"item": [
+				{
+					"name": "List Job Templates",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has results array', function() {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response).to.have.property('results');",
+									"    pm.expect(response).to.have.property('count');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/job-templates",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "job-templates"]
+						},
+						"description": "List all job templates.\n\n**Requires**: Valid JWT token\n\n**Response**:\n- `count`: Total number of templates\n- `results`: Array of job template objects"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Job Template",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 201', function() {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('templateId', response.id);",
+									"    console.log('✓ Template ID saved: ' + response.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Linux Security Baseline\",\n    \"description\": \"DevSec Linux baseline security compliance checks\",\n    \"profile\": \"dev-sec/linux-baseline\",\n    \"extra_vars\": {\n        \"reporter\": \"json\",\n        \"target\": \"ssh://user@host\"\n    },\n    \"vcs_sync\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/job-templates",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "job-templates"]
+						},
+						"description": "Create a new job template.\n\n**Request Body**:\n- `name`: Template name (required)\n- `description`: Template description\n- `profile`: InSpec profile name or Chef Supermarket path (required)\n- `extra_vars`: Additional variables (JSON object)\n- `vcs_repo_id`: VCS repository ID (optional)\n- `vcs_path`: Path in VCS repository (optional)\n- `vcs_sync`: Sync from VCS before running (default: false)\n\n**Response**: Created template object with ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Job Template",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/job-templates/{{templateId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "job-templates", "{{templateId}}"]
+						},
+						"description": "Get a specific job template by ID.\n\n**Requires**: Valid JWT token\n\n**Path Parameter**: `template_id`"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Job Template",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"description\": \"Updated: DevSec Linux baseline security compliance checks with custom settings\",\n    \"extra_vars\": {\n        \"reporter\": \"json\",\n        \"target\": \"ssh://user@host\",\n        \"custom_setting\": \"value\"\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/job-templates/{{templateId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "job-templates", "{{templateId}}"]
+						},
+						"description": "Update an existing job template.\n\n**Request Body** (all fields optional):\n- `name`: Updated template name\n- `description`: Updated description\n- `profile`: Updated profile name\n- `extra_vars`: Updated variables\n\n**Path Parameter**: `template_id`"
+					},
+					"response": []
+				},
+				{
+					"name": "Launch Job from Template",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 201', function() {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('jobId', response.id);",
+									"    console.log('✓ Job ID saved: ' + response.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"target\": \"ssh://user@192.168.1.100\",\n    \"extra_vars\": {\n        \"custom_var\": \"value\"\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/job-templates/{{templateId}}/launch",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "job-templates", "{{templateId}}", "launch"]
+						},
+						"description": "Launch a new job from a template.\n\n**Request Body**:\n- `target`: Target host/inventory (optional, can override template)\n- `extra_vars`: Additional variables (merged with template vars)\n\n**Path Parameter**: `template_id`\n\n**Response**: Created job object with status"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Job Template",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/job-templates/{{templateId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "job-templates", "{{templateId}}"]
+						},
+						"description": "Delete a job template.\n\n**Requires**: Valid JWT token\n\n**Path Parameter**: `template_id`\n\n**Response**: 204 No Content"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Jobs",
+			"description": "Job execution and monitoring - create jobs, check status, view results",
+			"item": [
+				{
+					"name": "List Jobs",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has results array', function() {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response).to.have.property('results');",
+									"    pm.expect(response).to.have.property('count');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/jobs?limit=20&skip=0",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "jobs"],
+							"query": [
+								{
+									"key": "limit",
+									"value": "20",
+									"description": "Number of results to return"
+								},
+								{
+									"key": "skip",
+									"value": "0",
+									"description": "Number of results to skip (pagination)"
+								}
+							]
+						},
+						"description": "List all jobs with pagination.\n\n**Query Parameters**:\n- `limit`: Number of results (default: 20)\n- `skip`: Number to skip for pagination (default: 0)\n\n**Response**:\n- `count`: Total number of jobs\n- `results`: Array of job objects with status, results, timestamps"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Job",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 201', function() {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('jobId', response.id);",
+									"    console.log('✓ Job ID saved: ' + response.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"template_id\": \"{{templateId}}\",\n    \"target\": \"ssh://user@192.168.1.100\",\n    \"extra_vars\": {\n        \"reporter\": \"json\"\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/jobs",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "jobs"]
+						},
+						"description": "Create and launch a new job.\n\n**Request Body**:\n- `template_id`: Job template ID (required)\n- `target`: Target host/inventory (optional)\n- `extra_vars`: Additional variables (optional)\n\n**Response**: Created job object with status"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Job",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Job has status', function() {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response).to.have.property('status');",
+									"    pm.expect(response).to.have.property('id');",
+									"    console.log('Job status: ' + response.status);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/jobs/{{jobId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "jobs", "{{jobId}}"]
+						},
+						"description": "Get job details including status and results.\n\n**Path Parameter**: `job_id`\n\n**Response**:\n- `id`: Job ID\n- `status`: Job status (pending, running, success, failed)\n- `results`: InSpec test results (JSON)\n- `created_at`: Creation timestamp\n- `started_at`: Start timestamp\n- `finished_at`: Completion timestamp"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "VCS Credentials",
+			"description": "VCS credential management for GitHub, GitLab, BitBucket integration",
+			"item": [
+				{
+					"name": "List VCS Credentials",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/vcs/credentials",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "vcs", "credentials"]
+						},
+						"description": "List all VCS credentials.\n\n**Note**: Passwords and tokens are not returned for security.\n\n**Response**: Array of credential objects (without sensitive data)"
+					},
+					"response": []
+				},
+				{
+					"name": "Create VCS Credential (Token)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 201', function() {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('credentialId', response.id);",
+									"    console.log('✓ Credential ID saved: ' + response.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"GitHub Personal Access Token\",\n    \"vcs_type\": \"github\",\n    \"token\": \"ghp_your_github_token_here\",\n    \"repository_url\": \"https://github.com/your-org/your-repo\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/vcs/credentials",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "vcs", "credentials"]
+						},
+						"description": "Create VCS credential with token authentication.\n\n**Request Body**:\n- `name`: Credential name (required)\n- `vcs_type`: Type (github, gitlab, bitbucket, git)\n- `token`: Personal access token (encrypted)\n- `repository_url`: Repository URL (optional)\n\n**Note**: Credentials are encrypted before storage."
+					},
+					"response": []
+				},
+				{
+					"name": "Create VCS Credential (SSH Key)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"GitHub SSH Key\",\n    \"vcs_type\": \"github\",\n    \"ssh_private_key\": \"-----BEGIN OPENSSH PRIVATE KEY-----\\nYour private key here\\n-----END OPENSSH PRIVATE KEY-----\",\n    \"repository_url\": \"git@github.com:your-org/your-repo.git\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/vcs/credentials",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "vcs", "credentials"]
+						},
+						"description": "Create VCS credential with SSH key authentication.\n\n**Request Body**:\n- `name`: Credential name (required)\n- `vcs_type`: Type (github, gitlab, bitbucket, git)\n- `ssh_private_key`: SSH private key (encrypted)\n- `repository_url`: Repository URL (optional)"
+					},
+					"response": []
+				},
+				{
+					"name": "Create VCS Credential (Username/Password)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"GitLab Credentials\",\n    \"vcs_type\": \"gitlab\",\n    \"username\": \"your-username\",\n    \"password\": \"your-password\",\n    \"repository_url\": \"https://gitlab.com/your-org/your-repo\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/vcs/credentials",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "vcs", "credentials"]
+						},
+						"description": "Create VCS credential with username/password authentication.\n\n**Request Body**:\n- `name`: Credential name (required)\n- `vcs_type`: Type (github, gitlab, bitbucket, git)\n- `username`: Username\n- `password`: Password (encrypted)\n- `repository_url`: Repository URL (optional)"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete VCS Credential",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/vcs/credentials/{{credentialId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "vcs", "credentials", "{{credentialId}}"]
+						},
+						"description": "Delete a VCS credential.\n\n**Path Parameter**: `credential_id`\n\n**Response**: 204 No Content"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "VCS Repositories",
+			"description": "VCS repository management - clone, sync, browse files from Git repositories",
+			"item": [
+				{
+					"name": "List VCS Repositories",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/vcs/repositories",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "vcs", "repositories"]
+						},
+						"description": "List all configured VCS repositories.\n\n**Response**: Array of repository objects with sync status"
+					},
+					"response": []
+				},
+				{
+					"name": "Create VCS Repository",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 201', function() {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('repoName', response.name);",
+									"    console.log('✓ Repository name saved: ' + response.name);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"compliance-profiles\",\n    \"url\": \"https://github.com/your-org/compliance-profiles.git\",\n    \"branch\": \"main\",\n    \"credential_id\": \"{{credentialId}}\",\n    \"poll_interval\": 300,\n    \"profile_path\": \"inspec\",\n    \"auto_import\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/vcs/repositories",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "vcs", "repositories"]
+						},
+						"description": "Clone and configure a VCS repository.\n\n**Request Body**:\n- `name`: Repository name (required, unique)\n- `url`: Git repository URL (required)\n- `branch`: Branch to track (default: main)\n- `credential_id`: VCS credential ID (optional for public repos)\n- `poll_interval`: Polling interval in seconds (default: 300)\n- `profile_path`: InSpec profile directory (default: inspec)\n- `auto_import`: Auto-import profiles (default: true)\n\n**Response**: Repository object with clone status"
+					},
+					"response": []
+				},
+				{
+					"name": "Sync Repository",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/vcs/repositories/{{repoName}}/sync",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "vcs", "repositories", "{{repoName}}", "sync"]
+						},
+						"description": "Manually trigger repository sync (git pull).\n\n**Path Parameter**: `repo_name`\n\n**Response**: Sync status and updated files"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Repository History",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/vcs/repositories/{{repoName}}/history?limit=10",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "vcs", "repositories", "{{repoName}}", "history"],
+							"query": [
+								{
+									"key": "limit",
+									"value": "10",
+									"description": "Number of commits to return"
+								}
+							]
+						},
+						"description": "Get repository commit history.\n\n**Path Parameter**: `repo_name`\n\n**Query Parameters**:\n- `limit`: Number of commits (default: 10)\n\n**Response**: Array of commit objects with hash, message, author, date"
+					},
+					"response": []
+				},
+				{
+					"name": "List Repository Files",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/vcs/repositories/{{repoName}}/files?path=inspec",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "vcs", "repositories", "{{repoName}}", "files"],
+							"query": [
+								{
+									"key": "path",
+									"value": "inspec",
+									"description": "Directory path (optional)"
+								}
+							]
+						},
+						"description": "List files in repository.\n\n**Path Parameter**: `repo_name`\n\n**Query Parameters**:\n- `path`: Directory path (optional, default: root)\n\n**Response**: Array of file objects with name, path, type, size"
+					},
+					"response": []
+				},
+				{
+					"name": "Get File Contents",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/vcs/repositories/{{repoName}}/files/inspec.yml",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "vcs", "repositories", "{{repoName}}", "files", "inspec.yml"]
+						},
+						"description": "Get file contents from repository.\n\n**Path Parameters**:\n- `repo_name`: Repository name\n- `file_path`: File path in repository\n\n**Response**: File content (text or base64 encoded)"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Repository",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/vcs/repositories/{{repoName}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "vcs", "repositories", "{{repoName}}"]
+						},
+						"description": "Delete a VCS repository configuration and local clone.\n\n**Path Parameter**: `repo_name`\n\n**Response**: 204 No Content"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "User Management",
+			"description": "User administration endpoints (admin only)",
+			"item": [
+				{
+					"name": "List Users",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users"]
+						},
+						"description": "List all users (admin only).\n\n**Requires**: Admin role\n\n**Response**: Array of user objects with roles, status, last login"
+					},
+					"response": []
+				},
+				{
+					"name": "Update User",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"roles\": [\"admin\", \"operator\"],\n    \"active\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/:userId",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", ":userId"],
+							"variable": [
+								{
+									"key": "userId",
+									"value": "user-id-here"
+								}
+							]
+						},
+						"description": "Update user roles and status (admin only).\n\n**Requires**: Admin role\n\n**Request Body**:\n- `roles`: Array of roles (admin, operator, viewer)\n- `active`: User active status (boolean)\n\n**Path Parameter**: `user_id`"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "System",
+			"description": "System health, metrics, and information endpoints",
+			"item": [
+				{
+					"name": "Root (Redirect to Docs)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/",
+							"host": ["{{baseUrl}}"],
+							"path": [""]
+						},
+						"description": "Root endpoint - redirects to API documentation."
+					},
+					"response": []
+				},
+				{
+					"name": "Health Check",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Service is healthy', function() {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.status).to.eql('healthy');",
+									"    console.log('Version: ' + response.version);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health",
+							"host": ["{{baseUrl}}"],
+							"path": ["health"]
+						},
+						"description": "Health check endpoint.\n\n**Response**:\n- `status`: Health status (healthy/unhealthy)\n- `version`: API version\n- `storage`: Storage backend type\n- `timestamp`: Current server time"
+					},
+					"response": []
+				},
+				{
+					"name": "API Info",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1"]
+						},
+						"description": "API version and information.\n\n**Response**:\n- `name`: API name\n- `version`: API version\n- `description`: API description"
+					},
+					"response": []
+				},
+				{
+					"name": "Prometheus Metrics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/metrics",
+							"host": ["{{baseUrl}}"],
+							"path": ["metrics"]
+						},
+						"description": "Prometheus metrics endpoint.\n\n**Response**: Prometheus-formatted metrics including:\n- Storage operations\n- Authentication requests\n- HTTP request metrics\n- System metrics"
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Pre-request script - runs before each request",
+					"// Automatically includes auth token if available",
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Global test script - runs after each request",
+					"// Add common assertions here",
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "authToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "username",
+			"value": "admin",
+			"type": "string"
+		},
+		{
+			"key": "password",
+			"value": "your-admin-password",
+			"type": "string"
+		},
+		{
+			"key": "templateId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "jobId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "credentialId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "repoName",
+			"value": "",
+			"type": "string"
+		}
+	]
+}

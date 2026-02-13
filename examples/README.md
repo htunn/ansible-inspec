@@ -2,6 +2,76 @@
 
 This directory contains practical examples demonstrating various features of ansible-inspec.
 
+## API Testing with Postman
+
+### ansible-inspec-api.postman_collection.json
+
+Complete Postman collection for testing the ansible-inspec REST API server.
+
+**Import the Collection**:
+1. Open Postman
+2. Click **Import** button
+3. Select `examples/ansible-inspec-api.postman_collection.json`
+4. Configure collection variables (see below)
+
+**Configure Collection Variables**:
+- `baseUrl`: API server URL (e.g., `https://ansible-inspec.tripleseven.cloud` or `http://localhost:8080`)
+- `username`: Admin username (default: `admin`)
+- `password`: Admin password (your configured `ADMIN_PASSWORD`)
+
+**Quick Start**:
+1. Run "Password Login" request → JWT token saved automatically
+2. Try "Health Check" → Verify server is running
+3. Explore "Job Templates" folder → Create and launch compliance tests
+4. Check "Jobs" folder → Monitor test execution and view results
+
+**Collection Features**:
+- ✅ **Authentication**: Password login, Azure AD, user management
+- ✅ **Job Templates**: Create, update, launch compliance tests
+- ✅ **Jobs**: Monitor execution, view InSpec results
+- ✅ **VCS Integration**: Manage Git repositories, credentials, file browsing
+- ✅ **System**: Health checks, metrics, API info
+- ✅ **Auto-save tokens**: JWT tokens automatically saved to variables
+- ✅ **Response tests**: Automated validation of API responses
+- ✅ **Documentation**: Detailed descriptions for each endpoint
+
+**Example Workflow**:
+```
+1. Authentication → Password Login
+2. Job Templates → Create Job Template (Linux Baseline)
+3. Job Templates → Launch Job from Template
+4. Jobs → Get Job (check status and results)
+```
+
+**Environment Setup** (Production):
+```json
+{
+  "baseUrl": "https://ansible-inspec.tripleseven.cloud",
+  "username": "admin",
+  "password": "your-secure-password"
+}
+```
+
+**Environment Setup** (Local Development):
+```json
+{
+  "baseUrl": "http://localhost:8080",
+  "username": "admin",
+  "password": "admin123"
+}
+```
+
+**API Endpoints Covered**:
+- `/api/v1/auth/*` - Authentication (password, Azure AD, user info)
+- `/api/v1/job-templates/*` - Job template CRUD and launching
+- `/api/v1/jobs/*` - Job execution and monitoring
+- `/api/v1/vcs/credentials/*` - VCS credential management
+- `/api/v1/vcs/repositories/*` - VCS repository operations
+- `/api/v1/users/*` - User management (admin only)
+- `/health`, `/metrics` - System health and monitoring
+
+For detailed API documentation, visit `{baseUrl}/docs` (FastAPI/Swagger UI).
+
 ## Chef Supermarket Integration
 
 ### supermarket_demo.py
