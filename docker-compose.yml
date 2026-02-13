@@ -32,6 +32,9 @@ services:
       # Override for Docker network - use service name as hostname
       DATABASE__URL: postgresql://${POSTGRES_USER:-ansibleinspec}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ansibleinspec}
       DATABASE_URL: postgresql://${POSTGRES_USER:-ansibleinspec}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ansibleinspec}
+      # Prisma query engine binary location
+      HOME: /home/ansibleinspec
+      PRISMA_QUERY_ENGINE_BINARY: /home/ansibleinspec/.cache/prisma-python/binaries/5.17.0/393aa359c9ad4a4bb28630fb5613f9c281cde053/node_modules/prisma/query-engine-linux-arm64-openssl-3.0.x
     ports:
       - "${API_PORT:-8080}:8080"
     volumes:

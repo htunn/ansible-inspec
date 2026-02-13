@@ -13,7 +13,7 @@ replicaCount: 2
 image:
   repository: ghcr.io/htunn/ansible-inspec
   pullPolicy: IfNotPresent
-  tag: "0.2.8"
+  tag: "0.2.9"
 
 imagePullSecrets: []
 nameOverride: ""
@@ -228,6 +228,13 @@ secrets:
   
   # VCS webhook secret
   webhookSecret: ""
+  
+  # Admin user credentials (for password-based authentication)
+  # IMPORTANT: Change these in production!
+  adminUsername: "admin"
+  adminPassword: "changeme"
+  adminEmail: "admin@example.com"
+  adminName: "Administrator"
   
   # Use existing secret instead of creating new one
   existingSecret: ""

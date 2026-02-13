@@ -98,26 +98,46 @@ async def initialize_database(settings: Settings) -> None:
     
     try:
         from prisma import Json
+        import bcrypt
         
         # Connect to database
         db = await get_prisma_client()
         logger.info("Database initialized successfully")
         
+        # Get admin credentials from environment variables
+        admin_username = os.getenv("ADMIN_USERNAME", "admin")
+        admin_email = os.getenv("ADMIN_EMAIL", "admin@ansible-inspec.local")
+        admin_password = os.getenv("ADMIN_PASSWORD")
+        admin_name = os.getenv("ADMIN_NAME", "Administrator")
+        
         # Create default admin user if none exists
         # Check by username since JSON queries are limited in Prisma
-        admin = await db.user.find_first(where={"username": "admin"})
+        admin = await db.user.find_first(where={"username": admin_username})
         if not admin:
-            logger.info("Creating default admin user")
-            await db.user.create(
-                data={
-                    "username": "admin",
-                    "email": "admin@ansible-inspec.local",
-                    "name": "Administrator",
-                    "roles": Json(["admin"]),
-                    "active": True,
-                }
-            )
-            logger.info("Default admin user created")
+            # Require password to be set via environment variable
+            if not admin_password:
+                logger.warning(
+                    f"No admin user found and ADMIN_PASSWORD not set. "
+                    f"Please set ADMIN_PASSWORD environment variable to create admin user."
+                )
+            else:
+                logger.info(f"Creating admin user: {admin_username}")
+                # Hash password using bcrypt
+                salt = bcrypt.gensalt()
+                hashed_password = bcrypt.hashpw(admin_password.encode('utf-8'), salt).decode('utf-8')
+                await db.user.create(
+                    data={
+                        "username": admin_username,
+                        "email": admin_email,
+                        "name": admin_name,
+                        "hashedPassword": hashed_password,
+                        "roles": Json(["admin"]),
+                        "active": True,
+                    }
+                )
+                logger.info(f"Admin user '{admin_username}' created successfully")
+        else:
+            logger.info(f"Admin user '{admin_username}' already exists")
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")
         logger.warning("Server will run with file-based storage only")

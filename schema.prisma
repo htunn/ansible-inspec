@@ -14,15 +14,16 @@ generator client {
 
 // User model for authentication and RBAC
 model User {
-  id        String    @id @default(uuid())
-  username  String    @unique
-  email     String    @unique
-  name      String?
-  roles     Json      @default("[]") // Array of roles: admin, operator, viewer
-  tenantId  String?   @map("tenant_id")
-  active    Boolean   @default(true)
-  createdAt DateTime  @default(now()) @map("created_at")
-  lastLogin DateTime? @map("last_login")
+  id             String    @id @default(uuid())
+  username       String    @unique
+  email          String    @unique
+  name           String?
+  hashedPassword String?   @map("hashed_password") // bcrypt hashed password for local auth
+  roles          Json      @default("[]") // Array of roles: admin, operator, viewer
+  tenantId       String?   @map("tenant_id")
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  lastLogin      DateTime? @map("last_login")
 
   // Relations
   createdTemplates JobTemplate[]

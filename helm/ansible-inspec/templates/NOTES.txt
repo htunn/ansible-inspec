@@ -29,8 +29,11 @@
    http://YOUR_HOST/health
 
 4. Get the admin credentials (if using default auth):
-   Username: admin
-   Password: Check secrets or set via values.yaml
+   Username: {{ .Values.secrets.adminUsername | default "admin" }}
+   Email: {{ .Values.secrets.adminEmail | default "admin@example.com" }}
+   Password: Set via values.yaml (secrets.adminPassword)
+   
+   IMPORTANT: Change the default admin password in production!
 
 {{- if .Values.postgresql.enabled }}
 

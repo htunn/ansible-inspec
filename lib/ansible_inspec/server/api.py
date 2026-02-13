@@ -142,7 +142,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Ansible-InSpec API",
     description="Enterprise compliance testing with Ansible and InSpec integration",
-    version="0.2.7",
+    version="0.2.9",
     lifespan=lifespan,
 )
 
@@ -230,7 +230,7 @@ async def health_check():
     
     return {
         "status": "healthy",
-        "version": "0.2.7",
+        "version": "0.2.9",
         "storage_backend": settings.storage_backend,
         "database": database_status,
         "auth_enabled": settings.auth.enabled,
@@ -243,7 +243,7 @@ async def api_info():
     """API information."""
     return {
         "name": "Ansible-InSpec API",
-        "version": "0.2.7",
+        "version": "0.2.9",
         "endpoints": {
             "job_templates": "/api/v1/job-templates",
             "jobs": "/api/v1/jobs",
@@ -285,6 +285,8 @@ async def password_login(login_request: PasswordLoginRequest):
     Returns JWT token for authentication.
     """
     try:
+        import bcrypt
+        
         # Find user in database
         async with get_db() as db:
             user = await db.user.find_unique(where={"username": login_request.username})
@@ -295,10 +297,19 @@ async def password_login(login_request: PasswordLoginRequest):
                     detail="Invalid username or password"
                 )
             
-            # For demo/dev purposes, we'll use a simple password check
-            # In production, use proper password hashing (bcrypt, argon2, etc.)
-            # Check if user has password field (needs to be added to schema)
-            # For now, we'll accept any password for existing users as a fallback
+            # Verify password using bcrypt
+            if not user.hashedPassword:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Password authentication not configured for this user"
+                )
+            
+            # Check password
+            if not bcrypt.checkpw(login_request.password.encode('utf-8'), user.hashedPassword.encode('utf-8')):
+                raise HTTPException(
+                    status_code=401,
+                    detail="Invalid username or password"
+                )
             
             # Update last login
             await db.user.update(
