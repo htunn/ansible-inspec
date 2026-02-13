@@ -161,17 +161,22 @@ def show_login_page():
                     try:
                         response = get_session().post(
                             f"{API_BASE}/auth/password-login",
-                            json={"username": username, "password": password}
+                            json={"username": username, "password": password},
+                            timeout=10
                         )
                         
                         if response.status_code == 200:
                             data = response.json()
                             token = data['access_token']
-                            # Redirect to self with token to ensure it persists across refreshes
-                            st.markdown(f'<meta http-equiv="refresh" content="0; url=/?token={token}">', unsafe_allow_html=True)
-                            st.success("✅ Login successful! Redirecting...")
+                            # Store token in session state
+                            st.session_state['access_token'] = token
+                            st.session_state['authenticated'] = True
+                            # Force rerun to reload the app with authenticated state
+                            st.success("✅ Login successful!")
+                            st.rerun()
                         else:
-                            st.error(f"Login failed: {response.json().get('detail', 'Invalid credentials')}")
+                            error_detail = response.json().get('detail', 'Invalid credentials') if response.headers.get('content-type') == 'application/json' else response.text
+                            st.error(f"Login failed: {error_detail}")
                     except Exception as e:
                         st.error(f"Login error: {str(e)}")
         

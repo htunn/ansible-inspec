@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.8] - 2026-02-13
+
+### Fixed
+- **Streamlit UI**: Fixed password login flow to properly store authentication token in session state
+- **Streamlit UI**: Replaced HTML meta refresh redirect with Streamlit's native rerun for better reliability
+- **Streamlit UI**: Added timeout and better error handling for password login API calls
+
+### Changed
+- Improved error messaging for password login failures with content-type checking
+
+### Technical Details
+This release fixes the password/username authentication in the Streamlit UI. The previous implementation used HTML meta refresh which didn't properly persist the session state, causing "Invalid username or password" errors even with correct credentials. The new implementation uses Streamlit's session state and rerun mechanism for reliable authentication.
+
+## [0.2.13] - 2026-02-13
+
+### Fixed
+- **CRITICAL**: Fixed OAuth authentication flow for multi-subdomain deployments (separate API and UI domains)
+- **CRITICAL**: Fixed service selector conflict causing API service to route to both API and UI pods
+- Fixed Streamlit `API_SERVER_URL` environment variable to point to correct API domain for browser redirects
+- Fixed Streamlit health check probes to use proper `/_stcore/health` endpoint instead of `/`
+- Fixed CORS configuration to include UI subdomain for cross-domain API requests
+- Fixed NetworkPolicy DNS egress rules to properly target CoreDNS pods
+
+### Changed
+- Added `app.kubernetes.io/component: api` label to API deployment and service for proper pod selection
+- Added `app.kubernetes.io/component: ui` label to UI deployment for service differentiation
+- Simplified API deployment command from shell script to direct uvicorn invocation
+- Improved environment variable configuration with distinct `API_BASE_URL` (internal) and `API_SERVER_URL` (external)
+- Removed `/ui` path-based routing from ingress in favor of separate subdomain architecture
+- Updated Helm chart version to 0.2.13
+
+### Added
+- Support for `streamlit.externalUrl` configuration to override default API_SERVER_URL
+- Enhanced Streamlit deployment with proper API URL configuration for OAuth redirects
+- Better documentation for multi-subdomain deployment scenarios
+
+### Technical Details
+This release fixes critical issues with OAuth authentication in deployments using separate subdomains for API and UI (e.g., via Cloudflare Tunnel). The service selector conflict caused 502 errors when the API service incorrectly routed traffic to UI pods. The OAuth flow now correctly redirects through the proper domains, enabling Azure AD SSO and other OAuth providers to work seamlessly.
+
 ## [0.2.7] - 2026-02-11
 
 ### Fixed

@@ -402,8 +402,8 @@ kubectl delete pvc -l app.kubernetes.io/instance=ansible-inspec
 
 ## Support
 
-- **Documentation**: https://github.com/harrytunn/ansible-inspec
-- **Issues**: https://github.com/harrytunn/ansible-inspec/issues
+- **Documentation**: https://github.com/htunn/ansible-inspec
+- **Issues**: https://github.com/htunn/ansible-inspec/issues
 - **License**: GPL-3.0
 
 ## Contributing

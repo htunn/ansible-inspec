@@ -89,6 +89,15 @@ config:
   monitoring:
     prometheusEnabled: true
 
+# Extra environment variables for Prisma cache
+extraEnv:
+  - name: PRISMA_BINARIES_CACHE_DIR
+    value: /tmp/.prisma
+  - name: PRISMA_QUERY_ENGINE_LIBRARY
+    value: /tmp/.prisma/query-engine-debian-openssl-3.0.x
+  - name: HOME
+    value: /tmp
+
 # Secrets configuration (CHANGE ALL OF THESE!)
 secrets:
   # PostgreSQL password

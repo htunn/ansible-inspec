@@ -59,4 +59,4 @@
    - Review NetworkPolicy settings
    - Set up backup for persistent volumes
 
-For more information, visit: https://github.com/harrytunn/ansible-inspec
+For more information, visit: https://github.com/htunn/ansible-inspec

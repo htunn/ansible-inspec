@@ -17,3 +17,4 @@ spec:
       name: http
   selector:
     {{- include "ansible-inspec.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: api

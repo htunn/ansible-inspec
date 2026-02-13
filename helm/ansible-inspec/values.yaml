@@ -13,7 +13,7 @@ replicaCount: 2
 image:
   repository: ghcr.io/htunn/ansible-inspec
   pullPolicy: IfNotPresent
-  tag: "0.2.7"
+  tag: "0.2.8"
 
 imagePullSecrets: []
 nameOverride: ""
@@ -299,15 +299,18 @@ networkPolicy:
         - protocol: TCP
           port: 8080
   egress:
-    # Allow DNS
+    # Allow DNS (CoreDNS in kube-system namespace)
     - to:
       - namespaceSelector:
           matchLabels:
-            name: kube-system
+            kubernetes.io/metadata.name: kube-system
+        podSelector:
+          matchLabels:
+            k8s-app: kube-dns
       ports:
         - protocol: UDP
           port: 53
-    # Allow PostgreSQL
+    # Allow PostgreSQL (pods in same namespace)
     - to:
       - podSelector:
           matchLabels:
@@ -315,16 +318,12 @@ networkPolicy:
       ports:
         - protocol: TCP
           port: 5432
-    # Allow HTTPS for external API calls (VCS, Azure AD)
-    - to:
-      - namespaceSelector: {}
-      ports:
+    # Allow HTTPS for external API calls (VCS, Azure AD, npm registry)
+    - ports:
         - protocol: TCP
           port: 443
     # Allow HTTP for external API calls
-    - to:
-      - namespaceSelector: {}
-      ports:
+    - ports:
         - protocol: TCP
           port: 80
 
@@ -389,6 +388,9 @@ streamlit:
   replicaCount: 1
   # Streamlit port
   port: 8501
+  # External URL for browser-side redirects (OAuth, etc.)
+  # If not set, will be constructed from first ingress host or use internal service name
+  externalUrl: ""
   # Service configuration
   service:
     type: ClusterIP
