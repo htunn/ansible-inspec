@@ -254,6 +254,8 @@ helm install my-release ansible-inspec/ansible-inspec
 # Or customize your installation
 helm install my-release ansible-inspec/ansible-inspec \
   --set postgresql.auth.password=yourpassword \
+  --set secrets.adminPassword=SecureAdminPass123 \
+  --set secrets.adminEmail=admin@yourdomain.com \
   --set replicaCount=3 \
   --set autoscaling.enabled=true \
   --set ingress.enabled=true \
@@ -269,7 +271,7 @@ cat > my-values.yaml <<EOF
 # Image configuration
 image:
   repository: ghcr.io/htunn/ansible-inspec
-  tag: "0.2.6"  # Use specific version in production
+  tag: "0.2.10"  # Use specific version in production
 
 # Ingress with TLS
 ingress:
@@ -298,7 +300,16 @@ config:
 
 # Secrets (use external secret management in production)
 secrets:
+  # Admin user credentials for local password authentication
+  adminUsername: "admin"
+  adminPassword: "ChangeThisSecurePassword123!"  # REQUIRED for password login
+  adminEmail: "admin@yourdomain.com"
+  adminName: "Administrator"
+  
+  # Azure AD OAuth2 (optional, for enterprise SSO)
   azureClientSecret: "your-client-secret"
+  
+  # Database and encryption
   postgresPassword: "secure-password"
   jwtSecret: "change-this-to-a-secure-random-string"
   encryptionKey: "change-this-to-a-32-byte-base64-encoded-key"
