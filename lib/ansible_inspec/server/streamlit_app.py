@@ -1588,13 +1588,13 @@ elif page == "📚 API Docs":
     
     #### Base URL
     ```
-    http://localhost:8080/api/v1
+    {API_BASE}
     ```
     
     #### Interactive Documentation
     
-    - **Swagger UI**: [http://localhost:8080/docs](http://localhost:8080/docs)
-    - **ReDoc**: [http://localhost:8080/redoc](http://localhost:8080/redoc)
+    - **Swagger UI**: [{API_SERVER}/docs]({API_SERVER}/docs)
+    - **ReDoc**: [{API_SERVER}/redoc]({API_SERVER}/redoc)
     
     #### Key Endpoints
     

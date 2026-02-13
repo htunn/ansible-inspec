@@ -137,7 +137,18 @@ async def initialize_database(settings: Settings) -> None:
                 )
                 logger.info(f"Admin user '{admin_username}' created successfully")
         else:
+            # Admin user exists - check if it has a hashed password
             logger.info(f"Admin user '{admin_username}' already exists")
+            if not admin.hashedPassword and admin_password:
+                # Update existing admin user with hashed password
+                logger.info(f"Updating admin user '{admin_username}' with hashed password")
+                salt = bcrypt.gensalt()
+                hashed_password = bcrypt.hashpw(admin_password.encode('utf-8'), salt).decode('utf-8')
+                await db.user.update(
+                    where={"id": admin.id},
+                    data={"hashedPassword": hashed_password}
+                )
+                logger.info(f"Admin user '{admin_username}' password updated successfully")
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")
         logger.warning("Server will run with file-based storage only")
