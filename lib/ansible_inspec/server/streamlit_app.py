@@ -1581,7 +1581,7 @@ elif page == "🔄 Version Control":
 elif page == "📚 API Docs":
     st.header("API Documentation")
     
-    st.markdown("""
+    st.markdown(f"""
     ### REST API Endpoints
     
     The Ansible InSpec Execution Server provides a comprehensive REST API for managing job templates and executions.
