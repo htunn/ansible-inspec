@@ -3,7 +3,7 @@ FROM python:3.12-slim AS builder
 
 LABEL maintainer="ansible-inspec project contributors"
 LABEL description="Compliance testing with Ansible and InSpec integration"
-LABEL version="0.2.11"
+LABEL version="0.2.12"
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \

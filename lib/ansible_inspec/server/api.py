@@ -27,6 +27,8 @@ from ansible_inspec.server.auth.azure_ad import AzureADAuth
 from ansible_inspec.server.encryption import EncryptionService
 from ansible_inspec.server.vcs.manager import VCSManager
 from ansible_inspec.server.vcs.scheduler import VCSPollingScheduler
+from ansible_inspec.server.executor import JobExecutor
+from ansible_inspec.server.models import Job, JobTemplate, JobStatus
 from prisma.models import (
     JobTemplate as JobTemplateModel,
     Job as JobModel,
@@ -49,12 +51,13 @@ encryption: Optional[EncryptionService] = None
 vcs_manager: Optional[VCSManager] = None
 vcs_scheduler: Optional[VCSPollingScheduler] = None
 azure_ad: Optional[AzureADAuth] = None
+executor: Optional[JobExecutor] = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup and shutdown."""
-    global storage, encryption, vcs_manager, vcs_scheduler, azure_ad
+    global storage, encryption, vcs_manager, vcs_scheduler, azure_ad, executor
     
     logger.info("Starting ansible-inspec API server...")
     
@@ -67,6 +70,10 @@ async def lifespan(app: FastAPI):
         data_dir=settings.data_dir
     )
     logger.info(f"Storage backend: {settings.storage_backend}")
+    
+    # Initialize job executor
+    executor = JobExecutor(data_dir=settings.data_dir, storage=storage)
+    logger.info("Job executor initialized")
     
     # Initialize encryption
     encryption_key = settings.encryption_key or os.getenv("ENCRYPTION_KEY")
@@ -660,7 +667,36 @@ async def launch_job_from_template(
     duration = time.time() - start_time
     record_storage_operation(backend=settings.storage_backend, operation="create", status="success", duration=duration)
     
-    # TODO: Launch job in background using executor
+    # Convert Prisma models to executor models for launching
+    executor_job = Job(
+        id=job.id,
+        template_id=job.templateId,
+        template_name=job.templateName,
+        status=JobStatus.PENDING,
+        extra_vars=extra_vars,
+        created_at=job.createdAt
+    )
+    
+    executor_template = JobTemplate(
+        id=template.id,
+        name=template.name,
+        profile=template.profile,
+        inventory=template.inventory,
+        target=template.target,
+        reporter=template.reporter or "cli json",
+        ssh_user=template.sshUser,
+        ssh_password=template.sshPassword,
+        ssh_private_key_path=template.sshPrivateKeyPath,
+        ssh_port=template.sshPort or 22,
+        extra_vars=extra_vars
+    )
+    
+    # Launch job in background using executor
+    if executor:
+        executor.launch_job(executor_job, executor_template)
+        logger.info(f"Launched job {job.id} from template {template.name}")
+    else:
+        logger.error("Executor not initialized - job created but not launched")
     
     return {
         "id": job.id,
@@ -715,24 +751,54 @@ async def create_job(
     # Create job
     job = JobModel(
         id=str(uuid.uuid4()),
-        template_id=template.id,
-        template_name=template.name,
+        templateId=template.id,
+        templateName=template.name,
         status="pending",
         target=job_data.target,
-        extra_vars=job_data.extra_vars,
-        created_at=datetime.now(),
+        extraVars=json.dumps(job_data.extra_vars) if job_data.extra_vars else "{}",
+        createdAt=datetime.now(),
     )
     
     await storage.save_job(job)
     record_storage_operation(backend=settings.storage_backend, operation="create", status="success")
     
-    # TODO: Launch job in background using executor
+    # Convert Prisma models to executor models for launching
+    extra_vars = job_data.extra_vars or {}
+    executor_job = Job(
+        id=job.id,
+        template_id=job.templateId,
+        template_name=job.templateName,
+        status=JobStatus.PENDING,
+        extra_vars=extra_vars,
+        created_at=job.createdAt
+    )
+    
+    executor_template = JobTemplate(
+        id=template.id,
+        name=template.name,
+        profile=template.profile,
+        inventory=template.inventory,
+        target=job_data.target,
+        reporter=template.reporter or "cli json",
+        ssh_user=template.sshUser,
+        ssh_password=template.sshPassword,
+        ssh_private_key_path=template.sshPrivateKeyPath,
+        ssh_port=template.sshPort or 22,
+        extra_vars=extra_vars
+    )
+    
+    # Launch job in background using executor
+    if executor:
+        executor.launch_job(executor_job, executor_template)
+        logger.info(f"Launched job {job.id} from template {template.name}")
+    else:
+        logger.error("Executor not initialized - job created but not launched")
     
     return {
         "id": job.id,
-        "template_id": job.template_id,
+        "template_id": job.templateId,
         "status": job.status,
-        "created_at": job.created_at.isoformat(),
+        "created_at": job.createdAt.isoformat(),
     }
 
 
