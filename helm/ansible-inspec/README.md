@@ -14,6 +14,34 @@ Ansible InSpec is a compliance and security automation tool that integrates InSp
 - **Job Management**: Execute InSpec profiles via Ansible
 - **Security**: Encrypted credentials, secure secrets management
 
+## Recent Updates
+
+### v0.2.16 (Chart) / v0.2.11 (App) - February 14, 2026
+
+**Fixed:**
+- SSH key authentication for private Git repositories
+- Network policy now allows SSH port 22 for VCS operations
+
+**Changed:**
+- Improved SSH key handling with proper flush and fsync
+- Added `IdentitiesOnly=yes` to SSH command for better key isolation
+- Ensure SSH keys end with newline (required for SSH)
+
+**Updated:**
+- All version references to 0.2.11
+
+### v0.2.15 (Chart) / v0.2.10 (App)
+
+**Fixed:**
+- Auto-update existing admin users with hashed passwords on startup
+- Password authentication error for existing users without hashed passwords
+
+**Changed:**
+- Replace hardcoded localhost URLs with dynamic API_SERVER environment variable in UI
+
+**Added:**
+- Secure password authentication with bcrypt hashing
+
 ## Prerequisites
 
 - Kubernetes 1.19+
@@ -33,7 +61,7 @@ helm install ansible-inspec ./ansible-inspec
 
 ```bash
 helm install ansible-inspec ./ansible-inspec \
-  --set image.tag=0.2.7 \
+  --set image.tag=0.2.11 \
   --set postgresql.auth.password=changeme \
   --set secrets.jwtSecret=your-jwt-secret \
   --set secrets.encryptionKey=your-encryption-key
@@ -56,7 +84,7 @@ The following table lists the configurable parameters and their default values.
 |-----------|-------------|---------|
 | `replicaCount` | Number of replicas | `2` |
 | `image.repository` | Image repository | `ghcr.io/htunn/ansible-inspec` |
-| `image.tag` | Image tag | `0.2.7` |
+| `image.tag` | Image tag | `0.2.11` |
 | `image.pullPolicy` | Image pull policy | `IfNotPresent` |
 | `service.type` | Service type | `ClusterIP` |
 | `service.port` | Service port | `8080` |
@@ -388,6 +416,8 @@ helm rollback ansible-inspec
 
 | Chart Version | App Version | Kubernetes | PostgreSQL |
 |---------------|-------------|------------|------------|
+| 0.2.16 | 0.2.11 | 1.19+ | 12+ |
+| 0.2.15 | 0.2.10 | 1.19+ | 12+ |
 | 0.2.7 | 0.2.7 | 1.19+ | 12+ |
 
 ## Uninstalling
