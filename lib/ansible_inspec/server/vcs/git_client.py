@@ -43,12 +43,19 @@ class GitClient:
                 if credential.ssh_private_key:
                     # Create temporary SSH key file
                     with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='_rsa') as key_file:
-                        key_file.write(credential.ssh_private_key)
+                        # Ensure key ends with newline (required for SSH)
+                        key_content = credential.ssh_private_key
+                        if not key_content.endswith('\n'):
+                            key_content += '\n'
+                        key_file.write(key_content)
+                        key_file.flush()  # Ensure key is written to disk
+                        os.fsync(key_file.fileno())  # Force write to disk
                         key_path = key_file.name
                     
                     os.chmod(key_path, 0o600)
-                    env['GIT_SSH_COMMAND'] = f'ssh -i {key_path} -o StrictHostKeyChecking=no'
+                    env['GIT_SSH_COMMAND'] = f'ssh -i {key_path} -o StrictHostKeyChecking=no -o IdentitiesOnly=yes'
                     self.temp_dirs.append(key_path)
+                    logger.debug(f"Using SSH key from {key_path}")
                 
                 elif credential.token:
                     # Use token authentication (for HTTPS)
@@ -111,13 +118,21 @@ class GitClient:
             # Setup authentication
             if credential:
                 if credential.ssh_private_key:
+                    # Create temporary SSH key file
                     with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='_rsa') as key_file:
-                        key_file.write(credential.ssh_private_key)
+                        # Ensure key ends with newline (required for SSH)
+                        key_content = credential.ssh_private_key
+                        if not key_content.endswith('\n'):
+                            key_content += '\n'
+                        key_file.write(key_content)
+                        key_file.flush()  # Ensure key is written to disk
+                        os.fsync(key_file.fileno())  # Force write to disk
                         key_path = key_file.name
                     
                     os.chmod(key_path, 0o600)
-                    env['GIT_SSH_COMMAND'] = f'ssh -i {key_path} -o StrictHostKeyChecking=no'
+                    env['GIT_SSH_COMMAND'] = f'ssh -i {key_path} -o StrictHostKeyChecking=no -o IdentitiesOnly=yes'
                     self.temp_dirs.append(key_path)
+                    logger.debug(f"Using SSH key from {key_path}")
                 
                 elif credential.token:
                     if url.startswith('https://'):

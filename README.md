@@ -271,7 +271,7 @@ cat > my-values.yaml <<EOF
 # Image configuration
 image:
   repository: ghcr.io/htunn/ansible-inspec
-  tag: "0.2.10"  # Use specific version in production
+  tag: "0.2.11"  # Use specific version in production
 
 # Ingress with TLS
 ingress:

@@ -3,7 +3,7 @@ FROM python:3.13-slim AS builder
 
 LABEL maintainer="ansible-inspec project contributors"
 LABEL description="Compliance testing with Ansible and InSpec integration - API Server"
-LABEL version="0.2.10"
+LABEL version="0.2.11"
 
 # Install build dependencies including Node.js for Prisma
 RUN apt-get update && apt-get install -y --no-install-recommends \

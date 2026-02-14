@@ -13,7 +13,7 @@ replicaCount: 2
 image:
   repository: ghcr.io/htunn/ansible-inspec
   pullPolicy: IfNotPresent
-  tag: "0.2.10"
+  tag: "0.2.11"
 
 imagePullSecrets: []
 nameOverride: ""
@@ -325,6 +325,10 @@ networkPolicy:
       ports:
         - protocol: TCP
           port: 5432
+    # Allow SSH for Git operations (GitHub, GitLab, etc.)
+    - ports:
+        - protocol: TCP
+          port: 22
     # Allow HTTPS for external API calls (VCS, Azure AD, npm registry)
     - ports:
         - protocol: TCP

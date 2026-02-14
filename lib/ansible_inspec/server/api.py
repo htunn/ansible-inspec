@@ -142,7 +142,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Ansible-InSpec API",
     description="Enterprise compliance testing with Ansible and InSpec integration",
-    version="0.2.10",
+    version="0.2.11",
     lifespan=lifespan,
 )
 
@@ -230,7 +230,7 @@ async def health_check():
     
     return {
         "status": "healthy",
-        "version": "0.2.10",
+        "version": "0.2.11",
         "storage_backend": settings.storage_backend,
         "database": database_status,
         "auth_enabled": settings.auth.enabled,
@@ -243,7 +243,7 @@ async def api_info():
     """API information."""
     return {
         "name": "Ansible-InSpec API",
-        "version": "0.2.10",
+        "version": "0.2.11",
         "endpoints": {
             "job_templates": "/api/v1/job-templates",
             "jobs": "/api/v1/jobs",
