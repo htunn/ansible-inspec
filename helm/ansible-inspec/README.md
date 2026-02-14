@@ -16,6 +16,19 @@ Ansible InSpec is a compliance and security automation tool that integrates InSp
 
 ## Recent Updates
 
+### v0.2.17 (Chart) / v0.2.12 (App) - February 14, 2026
+
+**Fixed:**
+- Job execution now works - implemented JobExecutor in API server
+- "Failed to launch job" error resolved in UI
+- Jobs now actually execute after being created
+
+**Changed:**
+- Added JobExecutor initialization in API lifespan
+- Implemented job launching in both `/job-templates/{id}/launch` and `/jobs` endpoints
+- Convert Prisma models to executor models for background job execution
+- Fixed templateId/extraVars field naming consistency
+
 ### v0.2.16 (Chart) / v0.2.11 (App) - February 14, 2026
 
 **Fixed:**
